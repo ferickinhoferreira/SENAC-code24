@@ -21,6 +21,7 @@ local connections = {}
 local screenGui = nil
 local mainFrame = nil
 local scrollingFrame = nil
+local playerListFrame = nil
 local topBar = nil
 local searchBar = nil
 local minimizeButton = nil
@@ -28,17 +29,39 @@ local floatingButton = nil
 local uiScale = nil
 local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local isMinimized = false
+local mouseLocked = true
 local flyEnabled = false
 local noclipEnabled = false
 local espPlayerEnabled = false
 local espNPCEnabled = false
 local flashlightEnabled = false
 local fullbrightEnabled = false
+local infiniteJumpEnabled = false
 local flySpeed = 50
+local flashlightRange = 60
 local playerHighlights = {}
 local npcHighlights = {}
-local flashlight = nil
-local defaultLighting = {Brightness = Lighting.Brightness, FogEnd = Lighting.FogEnd}
+local flashlightPart = nil
+local lastTouchPos = nil
+local selectedFollowPlayer = nil
+local followDistance = 5
+local followEnabled = false
+local playerEntries = {}
+local defaultLighting = {
+    Brightness = Lighting.Brightness,
+    FogEnd = Lighting.FogEnd,
+    GlobalShadows = Lighting.GlobalShadows,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    Technology = Lighting.Technology
+}
+local defaultSettings = {
+    WalkSpeed = 16,
+    JumpPower = 50,
+    FlySpeed = 50,
+    FlashlightRange = 60,
+    FollowDistance = 5
+}
 
 -- Theme Variables
 local themeColors = {
@@ -49,7 +72,8 @@ local themeColors = {
     Accent = Color3.fromRGB(255, 0, 0),
     ToggleOn = Color3.fromRGB(0, 255, 0),
     ToggleOff = Color3.fromRGB(255, 0, 0),
-    SearchBar = Color3.fromRGB(50, 50, 50)
+    SearchBar = Color3.fromRGB(50, 50, 50),
+    Selected = Color3.fromRGB(60, 60, 60)
 }
 
 -- Function to Disconnect All Connections
@@ -104,7 +128,6 @@ local function createFloatingButton()
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     stroke.Parent = floatingButton
 
-    -- Draggable Functionality
     local dragging = false
     local dragStartPos = nil
     local buttonStartPos = nil
@@ -134,13 +157,11 @@ local function createFloatingButton()
             local delta = currentPos - dragStartPos
             local newPos = buttonStartPos + delta
 
-            -- Clamp position to keep button within screen (10-pixel margin)
             newPos = Vector2.new(
-                math.clamp(newPos.X, 10, screenSize.X - 90), -- 80 button size + 10 margin
+                math.clamp(newPos.X, 10, screenSize.X - 90),
                 math.clamp(newPos.Y, 10, screenSize.Y - 90)
             )
 
-            -- Convert to UDim2 scale for position
             floatingButton.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
         end
     end)
@@ -271,7 +292,6 @@ local function createGui()
 
     createFloatingButton()
 
-    -- Search Functionality
     searchBar:GetPropertyChangedSignal("Text"):Connect(function()
         local searchText = searchBar.Text:lower()
         for _, child in ipairs(scrollingFrame:GetChildren()) do
@@ -281,11 +301,16 @@ local function createGui()
             elseif child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
                 local label = child:FindFirstChildOfClass("TextLabel")
                 child.Visible = searchText == "" or label.Text:lower():find(searchText) ~= nil
+            elseif child:IsA("ScrollingFrame") then
+                for _, entry in ipairs(child:GetChildren()) do
+                    if entry:IsA("Frame") and entry:FindFirstChild("PlayerName") then
+                        entry.Visible = searchText == "" or entry.PlayerName.Text:lower():find(searchText) ~= nil
+                    end
+                end
             end
         end
     end)
 
-    -- Adjust GUI on screen size change
     local viewportConnection = Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(adjustGuiForDevice)
     table.insert(connections, viewportConnection)
 
@@ -323,8 +348,9 @@ local function addButton(text, callback, isToggle)
     corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = button
 
+    local toggleIndicator = nil
     if isToggle then
-        local toggleIndicator = Instance.new("Frame")
+        toggleIndicator = Instance.new("Frame")
         toggleIndicator.Size = UDim2.new(0, 20, 0, 20)
         toggleIndicator.Position = UDim2.new(1, -30, 0.5, -10)
         toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
@@ -333,7 +359,80 @@ local function addButton(text, callback, isToggle)
         toggleCorner.CornerRadius = UDim.new(0, 4)
         toggleCorner.Parent = toggleIndicator
         toggleIndicator.Parent = button
+    end
 
+    -- Reset Button
+    local resetButton = Instance.new("TextButton")
+    resetButton.Size = UDim2.new(0, 60, 0, 20)
+    resetButton.Position = isToggle and UDim2.new(1, -95, 0.5, -10) or UDim2.new(1, -70, 0.5, -10)
+    resetButton.BackgroundColor3 = themeColors.Button
+    resetButton.Text = "Resetar"
+    resetButton.TextColor3 = themeColors.Text
+    resetButton.Font = Enum.Font.Gotham
+    resetButton.TextSize = 10
+    resetButton.ZIndex = 8
+    local resetCorner = Instance.new("UICorner")
+    resetCorner.CornerRadius = UDim.new(0, 6)
+    resetCorner.Parent = resetButton
+    resetButton.Parent = button
+
+    resetButton.MouseButton1Click:Connect(function()
+        if text == "Pulo Infinito" then
+            infiniteJumpEnabled = false
+            if toggleIndicator then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+            end
+        elseif text == "Voar" then
+            flyEnabled = false
+            flySpeed = defaultSettings.FlySpeed
+            if toggleIndicator then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+            end
+        elseif text == "Noclip" then
+            noclipEnabled = false
+            if toggleIndicator then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+            end
+        elseif text == "Esp Player" then
+            espPlayerEnabled = false
+            if toggleIndicator then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+            end
+        elseif text == "Esp NPC" then
+            espNPCEnabled = false
+            if toggleIndicator then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+            end
+        elseif text == "Flashlight" then
+            flashlightEnabled = false
+            flashlightRange = defaultSettings.FlashlightRange
+            if toggleIndicator then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+            end
+        elseif text == "Fullbright" then
+            fullbrightEnabled = false
+            if toggleIndicator then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+            end
+        elseif text == "Velocidade" then
+            if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
+                PlayerCharacter.Humanoid.WalkSpeed = defaultSettings.WalkSpeed
+            end
+        elseif text == "Pulo" then
+            if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
+                PlayerCharacter.Humanoid.JumpPower = defaultSettings.JumpPower
+            end
+        elseif text == "Velocidade de Voo" then
+            flySpeed = defaultSettings.FlySpeed
+        elseif text == "Alcance da Lanterna" then
+            flashlightRange = defaultSettings.FlashlightRange
+        elseif text == "Distância de Seguimento" then
+            followDistance = defaultSettings.FollowDistance
+        end
+        callback(false)
+    end)
+
+    if isToggle then
         button.MouseButton1Click:Connect(function()
             local state = toggleIndicator.BackgroundColor3 == themeColors.ToggleOff
             toggleIndicator.BackgroundColor3 = state and themeColors.ToggleOn or themeColors.ToggleOff
@@ -456,15 +555,16 @@ end
 
 -- Function to Terminate the Script
 local function terminateScript()
-    -- Disable all features
     flyEnabled = false
     noclipEnabled = false
     espPlayerEnabled = false
     espNPCEnabled = false
     flashlightEnabled = false
     fullbrightEnabled = false
+    infiniteJumpEnabled = false
+    followEnabled = false
+    selectedFollowPlayer = nil
 
-    -- Cleanup Fly
     if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
         local root = PlayerCharacter.HumanoidRootPart
         if root:FindFirstChild("FlyVelocity") then
@@ -475,7 +575,6 @@ local function terminateScript()
         end
     end
 
-    -- Cleanup Noclip
     if noclipEnabled then
         for _, part in ipairs(PlayerCharacter:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -484,7 +583,6 @@ local function terminateScript()
         end
     end
 
-    -- Cleanup ESP
     for _, highlight in pairs(playerHighlights) do
         highlight:Destroy()
     end
@@ -494,15 +592,32 @@ local function terminateScript()
     end
     npcHighlights = {}
 
-    -- Cleanup Flashlight
-    if flashlight then
-        flashlight:Destroy()
-        flashlight = nil
+    if flashlightPart then
+        flashlightPart:Destroy()
+        flashlightPart = nil
     end
 
-    -- Cleanup Fullbright
+    for _, entry in pairs(playerEntries) do
+        entry:Destroy()
+    end
+    playerEntries = {}
+
+    if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
+        PlayerCharacter.Humanoid.WalkSpeed = defaultSettings.WalkSpeed
+        PlayerCharacter.Humanoid.JumpPower = defaultSettings.JumpPower
+    end
+    flySpeed = defaultSettings.FlySpeed
+    flashlightRange = defaultSettings.FlashlightRange
+    followDistance = defaultSettings.FollowDistance
+
     Lighting.Brightness = defaultLighting.Brightness
     Lighting.FogEnd = defaultLighting.FogEnd
+    Lighting.GlobalShadows = defaultLighting.GlobalShadows
+    Lighting.Ambient = defaultLighting.Ambient
+    Lighting.OutdoorAmbient = defaultLighting.OutdoorAmbient
+    Lighting.Technology = defaultLighting.Technology
+
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 
     disconnectAll()
     if screenGui then
@@ -672,19 +787,124 @@ end
 local function toggleFlashlight(enabled)
     flashlightEnabled = enabled
     if enabled then
-        if PlayerCharacter and PlayerCharacter:FindFirstChild("Head") then
-            flashlight = Instance.new("PointLight")
-            flashlight.Name = "Flashlight"
-            flashlight.Brightness = 2
-            flashlight.Range = 30
-            flashlight.Color = Color3.fromRGB(255, 255, 255)
-            flashlight.Parent = PlayerCharacter.Head
-        end
+        flashlightPart = Instance.new("Part")
+        flashlightPart.Name = "FlashlightPart"
+        flashlightPart.Size = Vector3.new(0.2, 0.2, 0.2)
+        flashlightPart.Transparency = 1
+        flashlightPart.CanCollide = false
+        flashlightPart.Anchored = true
+        flashlightPart.Parent = Workspace
+
+        local spotlight = Instance.new("SpotLight")
+        spotlight.Name = "Flashlight"
+        spotlight.Brightness = 5
+        spotlight.Range = flashlightRange
+        spotlight.Angle = 10
+        spotlight.Color = Color3.fromRGB(200, 255, 200)
+        spotlight.Shadows = false
+        spotlight.Enabled = true
+        spotlight.Parent = flashlightPart
+
+        local flashlightConnection = RunService.RenderStepped:Connect(function()
+            if not flashlightEnabled or not flashlightPart or not spotlight then
+                if flashlightConnection then
+                    flashlightConnection:Disconnect()
+                end
+                return
+            end
+
+            local cameraPos = Camera.CFrame.Position
+            local cameraForward = Camera.CFrame.LookVector
+            flashlightPart.Position = cameraPos + cameraForward * 1
+
+            local screenPos
+            if UserInputService.TouchEnabled and lastTouchPos then
+                screenPos = lastTouchPos
+            else
+                screenPos = UserInputService:GetMouseLocation()
+            end
+
+            local ray = Camera:ScreenPointToRay(screenPos.X, screenPos.Y)
+            local targetPos = ray.Origin + ray.Direction * flashlightRange
+
+            flashlightPart.CFrame = CFrame.new(flashlightPart.Position, targetPos)
+            spotlight.Range = flashlightRange
+        end)
+        table.insert(connections, flashlightConnection)
+
+        local touchConnection = UserInputService.TouchMoved:Connect(function(touch)
+            lastTouchPos = Vector2.new(touch.Position.X, touch.Position.Y)
+        end)
+        table.insert(connections, touchConnection)
+
+        local touchEndedConnection = UserInputService.TouchEnded:Connect(function()
+            lastTouchPos = nil
+        end)
+        table.insert(connections, touchEndedConnection)
     else
-        if flashlight then
-            flashlight:Destroy()
-            flashlight = nil
+        if flashlightPart then
+            flashlightPart:Destroy()
+            flashlightPart = nil
         end
+        lastTouchPos = nil
+        Lighting.Technology = defaultLighting.Technology
+    end
+end
+
+-- Infinite Jump Functionality
+local function toggleInfiniteJump(enabled)
+    infiniteJumpEnabled = enabled
+
+    if enabled and not _G.infinJumpStarted then
+        _G.infinJumpStarted = true
+
+        local player = Players.LocalPlayer
+        local flying = false
+
+        -- Notification
+        StarterGui:SetCore("SendNotification", {
+            Title = "Infinite Jump Ativado",
+            Text = "Pulo padrão no chão, impulso maior no ar!",
+            Duration = 5
+        })
+
+        -- Fly loop for air jumps
+        local function flyLoop()
+            while flying and infiniteJumpEnabled do
+                local char = player.Character
+                if char then
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+                    local root = char:FindFirstChild("HumanoidRootPart")
+
+                    if humanoid and root then
+                        local state = humanoid:GetState()
+                        if state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping then
+                            root.Velocity = Vector3.new(root.Velocity.X, 80, root.Velocity.Z) -- Strong air jump
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end
+
+        -- Start flying on Space press
+        local inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if not gameProcessed and input.KeyCode == Enum.KeyCode.Space and infiniteJumpEnabled then
+                flying = true
+                task.spawn(flyLoop)
+            end
+        end)
+        table.insert(connections, inputBeganConnection)
+
+        -- Stop flying on Space release
+        local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
+            if input.KeyCode == Enum.KeyCode.Space then
+                flying = false
+            end
+        end)
+        table.insert(connections, inputEndedConnection)
+    elseif not enabled then
+        flying = false
     end
 end
 
@@ -694,17 +914,213 @@ local function toggleFullbright(enabled)
     if enabled then
         Lighting.Brightness = 1
         Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
     else
         Lighting.Brightness = defaultLighting.Brightness
         Lighting.FogEnd = defaultLighting.FogEnd
+        Lighting.GlobalShadows = defaultLighting.GlobalShadows
+        Lighting.Ambient = defaultLighting.Ambient
+        Lighting.OutdoorAmbient = defaultLighting.OutdoorAmbient
     end
+end
+
+-- Player List Functionality
+local function createPlayerList()
+    playerListFrame = Instance.new("ScrollingFrame")
+    playerListFrame.Size = UDim2.new(1, 0, 0.3, 0)
+    playerListFrame.Position = UDim2.new(0, 0, 0, 0)
+    playerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    playerListFrame.ScrollBarThickness = 4
+    playerListFrame.BackgroundTransparency = 1
+    playerListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    playerListFrame.ZIndex = 7
+    playerListFrame.Parent = scrollingFrame
+
+    local uiList = Instance.new("UIListLayout")
+    uiList.Padding = UDim.new(0, 5)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.Parent = playerListFrame
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 5)
+    padding.PaddingRight = UDim.new(0, 5)
+    padding.PaddingTop = UDim.new(0, 5)
+    padding.Parent = playerListFrame
+
+    local function addPlayerEntry(player)
+        if player == LocalPlayer then return end
+        local entry = Instance.new("Frame")
+        entry.Size = UDim2.new(1, -10, 0, 30)
+        entry.BackgroundTransparency = 1
+        entry.ZIndex = 7
+        entry.Parent = playerListFrame
+        entry.Visible = true
+
+        local nameButton = Instance.new("TextButton")
+        nameButton.Name = "PlayerName"
+        nameButton.Size = UDim2.new(0.5, 0, 1, 0)
+        nameButton.BackgroundColor3 = themeColors.Button
+        nameButton.TextColor3 = themeColors.Text
+        nameButton.Text = player.Name
+        nameButton.Font = Enum.Font.Gotham
+        nameButton.TextSize = 12
+        nameButton.ZIndex = 8
+        local nameCorner = Instance.new("UICorner")
+        nameCorner.CornerRadius = UDim.new(0, 6)
+        nameCorner.Parent = nameButton
+        nameButton.Parent = entry
+
+        local teleportButton = Instance.new("TextButton")
+        teleportButton.Size = UDim2.new(0.2, 0, 1, 0)
+        teleportButton.Position = UDim2.new(0.55, 0, 0, 0)
+        teleportButton.BackgroundColor3 = themeColors.Button
+        teleportButton.TextColor3 = themeColors.Text
+        teleportButton.Text = "Teleportar"
+        teleportButton.Font = Enum.Font.Gotham
+        teleportButton.TextSize = 12
+        teleportButton.ZIndex = 8
+        local teleportCorner = Instance.new("UICorner")
+        teleportCorner.CornerRadius = UDim.new(0, 6)
+        teleportCorner.Parent = teleportButton
+        teleportButton.Parent = entry
+
+        local followButton = Instance.new("TextButton")
+        followButton.Size = UDim2.new(0.2, 0, 1, 0)
+        followButton.Position = UDim2.new(0.8, 0, 0, 0)
+        followButton.BackgroundColor3 = themeColors.Button
+        followButton.TextColor3 = themeColors.Text
+        followButton.Text = "Grudar"
+        followButton.Font = Enum.Font.Gotham
+        followButton.TextSize = 12
+        followButton.ZIndex = 8
+        local followCorner = Instance.new("UICorner")
+        followCorner.CornerRadius = UDim.new(0, 6)
+        followCorner.Parent = followButton
+        local followIndicator = Instance.new("Frame")
+        followIndicator.Size = UDim2.new(0, 20, 0, 20)
+        followIndicator.Position = UDim2.new(1, -25, 0.5, -10)
+        followIndicator.BackgroundColor3 = themeColors.ToggleOff
+        followIndicator.ZIndex = 9
+        local followIndicatorCorner = Instance.new("UICorner")
+        followIndicatorCorner.CornerRadius = UDim.new(0, 4)
+        followIndicatorCorner.Parent = followIndicator
+        followIndicator.Parent = followButton
+        followButton.Parent = entry
+
+        playerEntries[player] = entry
+
+        nameButton.MouseButton1Click:Connect(function()
+            selectedFollowPlayer = player
+            for otherPlayer, otherEntry in pairs(playerEntries) do
+                otherEntry.PlayerName.BackgroundColor3 = otherPlayer == player and themeColors.Selected or themeColors.Button
+            end
+        end)
+
+        teleportButton.MouseButton1Click:Connect(function()
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
+                PlayerCharacter.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+            end
+        end)
+
+        followButton.MouseButton1Click:Connect(function()
+            local state = followIndicator.BackgroundColor3 == themeColors.ToggleOff
+            followIndicator.BackgroundColor3 = state and themeColors.ToggleOn or themeColors.ToggleOff
+            if state then
+                selectedFollowPlayer = player
+                followEnabled = true
+                for otherPlayer, otherEntry in pairs(playerEntries) do
+                    otherEntry.PlayerName.BackgroundColor3 = otherPlayer == player and themeColors.Selected or themeColors.Button
+                    if otherPlayer ~= player then
+                        otherEntry.FollowButton:FindFirstChildOfClass("Frame").BackgroundColor3 = themeColors.ToggleOff
+                    end
+                end
+            else
+                followEnabled = false
+                selectedFollowPlayer = nil
+            end
+        end)
+    end
+
+    local function removePlayerEntry(player)
+        if playerEntries[player] then
+            playerEntries[player]:Destroy()
+            playerEntries[player] = nil
+            if selectedFollowPlayer == player then
+                selectedFollowPlayer = nil
+                followEnabled = false
+            end
+        end
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        addPlayerEntry(player)
+    end
+
+    local playerAddedConnection = Players.PlayerAdded:Connect(addPlayerEntry)
+    table.insert(connections, playerAddedConnection)
+
+    local playerRemovingConnection = Players.PlayerRemoving:Connect(removePlayerEntry)
+    table.insert(connections, playerRemovingConnection)
+
+    local followConnection = RunService.RenderStepped:Connect(function()
+        if not followEnabled or not selectedFollowPlayer or not PlayerCharacter or not PlayerCharacter:FindFirstChild("HumanoidRootPart") then
+            return
+        end
+        local targetCharacter = selectedFollowPlayer.Character
+        if targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart") then
+            local targetPos = targetCharacter.HumanoidRootPart.Position
+            local direction = (targetPos - PlayerCharacter.HumanoidRootPart.Position).Unit
+            local desiredPos = targetPos - direction * followDistance
+            PlayerCharacter.HumanoidRootPart.CFrame = CFrame.new(desiredPos, targetPos)
+        else
+            followEnabled = false
+            selectedFollowPlayer = nil
+            for _, entry in pairs(playerEntries) do
+                local indicator = entry.FollowButton:FindFirstChildOfClass("Frame")
+                if indicator then
+                    indicator.BackgroundColor3 = themeColors.ToggleOff
+                end
+            end
+        end
+    end)
+    table.insert(connections, followConnection)
+end
+
+-- Universal Classic Camera with Infinite Zoom
+local function setupClassicCamera()
+    pcall(function()
+        LocalPlayer.CameraMode = Enum.CameraMode.Classic
+        Camera.CameraType = Enum.CameraType.Custom
+        LocalPlayer.CameraMaxZoomDistance = math.huge
+        LocalPlayer.CameraMinZoomDistance = 0.5
+
+        local function forceClassicCamera()
+            LocalPlayer.CameraMode = Enum.CameraMode.Classic
+            Camera.CameraType = Enum.CameraType.Custom
+            Camera.CameraSubject = LocalPlayer.Character and (LocalPlayer.Character:FindFirstChild("Humanoid") or LocalPlayer.Character:FindFirstChildOfClass("Humanoid"))
+        end
+
+        LocalPlayer.CharacterAdded:Connect(function()
+            wait(1)
+            forceClassicCamera()
+        end)
+
+        local cameraConnection = RunService.RenderStepped:Connect(function()
+            LocalPlayer.CameraMaxZoomDistance = math.huge
+            LocalPlayer.CameraMinZoomDistance = 0.5
+            forceClassicCamera()
+        end)
+        table.insert(connections, cameraConnection)
+    end)
 end
 
 -- Main Function to Initialize the GUI
 local function initializeGui()
     createGui()
+    setupClassicCamera()
 
-    -- Section: Player Mods
     addSectionLabel("Modificações do Jogador")
     addSlider("Velocidade", 16, 16, 1000, function(value)
         if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
@@ -716,6 +1132,9 @@ local function initializeGui()
             PlayerCharacter.Humanoid.JumpPower = value
         end
     end)
+    addButton("Pulo Infinito", function(state)
+        toggleInfiniteJump(state)
+    end, true)
     addButton("Voar", function(state)
         toggleFly(state)
     end, true)
@@ -726,7 +1145,6 @@ local function initializeGui()
         toggleNoclip(state)
     end, true)
 
-    -- Section: Visual Mods
     addSectionLabel("Modificações Visuais")
     addButton("Esp Player", function(state)
         toggleEspPlayer(state)
@@ -737,28 +1155,47 @@ local function initializeGui()
     addButton("Flashlight", function(state)
         toggleFlashlight(state)
     end, true)
+    addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
+        flashlightRange = value
+    end)
     addButton("Fullbright", function(state)
         toggleFullbright(state)
     end, true)
 
-    -- Section: Script Controls
+    addSectionLabel("Lista de Jogadores")
+    addSlider("Distância de Seguimento", 5, 1, 50, function(value)
+        followDistance = value
+    end)
+    createPlayerList()
+
     addSectionLabel("Controles do Script")
     addButton("Encerrar tudo", function()
         terminateScript()
     end)
 
-    -- Input Connection for Terminate
     local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then
             return
         end
         if input.KeyCode == Enum.KeyCode.Delete then
             terminateScript()
+        elseif input.KeyCode == Enum.KeyCode.F1 then
+            isMinimized = not isMinimized
+            if isMinimized then
+                mainFrame.Visible = false
+                floatingButton.Visible = true
+            else
+                mainFrame.Visible = true
+                floatingButton.Visible = false
+                adjustGuiForDevice()
+            end
+        elseif input.KeyCode == Enum.KeyCode.Home then
+            mouseLocked = not mouseLocked
+            UserInputService.MouseBehavior = mouseLocked and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCurrentPosition
         end
     end)
     table.insert(connections, inputConnection)
 
-    -- Character Respawn Handling
     LocalPlayer.CharacterAdded:Connect(function(character)
         PlayerCharacter = character
         if flyEnabled then
@@ -771,6 +1208,10 @@ local function initializeGui()
         if flashlightEnabled then
             toggleFlashlight(false)
             toggleFlashlight(true)
+        end
+        if infiniteJumpEnabled then
+            toggleInfiniteJump(false)
+            toggleInfiniteJump(true)
         end
     end)
 end
