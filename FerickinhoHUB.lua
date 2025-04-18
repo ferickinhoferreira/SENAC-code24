@@ -1,6 +1,7 @@
 -- Ferickinho Hub, criado para ajudar as pessoas (Made By Ferick)
 
 -- Services
+local activeLoops = {}
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -684,6 +685,11 @@ local function addButton(text, callback, isToggle)
     corner.Parent = button
 
     local toggleIndicator = nil
+    local loopFrame = nil
+    local loopLabel = nil
+    local resetButton = nil
+    local isLooping = false
+
     if isToggle then
         toggleIndicator = Instance.new("Frame")
         toggleIndicator.Size = UDim2.new(0, 20, 0, 20)
@@ -694,6 +700,62 @@ local function addButton(text, callback, isToggle)
         toggleCorner.CornerRadius = UDim.new(0, 4)
         toggleCorner.Parent = toggleIndicator
         toggleIndicator.Parent = button
+
+        -- Caixa de Loop com TextLabel
+        loopFrame = Instance.new("Frame")
+        loopFrame.Size = UDim2.new(0, 50, 0, 20)
+        loopFrame.Position = UDim2.new(1, -85, 0.5, -10)
+        loopFrame.BackgroundColor3 = themeColors.Button
+        loopFrame.ZIndex = 16
+        local loopCorner = Instance.new("UICorner")
+        loopCorner.CornerRadius = UDim.new(0, 4)
+        loopCorner.Parent = loopFrame
+        loopFrame.Parent = button
+
+        loopLabel = Instance.new("TextLabel")
+        loopLabel.Size = UDim2.new(1, 0, 1, 0)
+        loopLabel.BackgroundColor3 = themeColors.ToggleOff
+        loopLabel.Text = "Loop"
+        loopLabel.TextColor3 = themeColors.Text
+        loopLabel.Font = Enum.Font.Gotham
+        loopLabel.TextSize = 10
+        loopLabel.TextScaled = true
+        loopLabel.ZIndex = 17
+        local loopLabelCorner = Instance.new("UICorner")
+        loopLabelCorner.CornerRadius = UDim.new(0, 4)
+        loopLabelCorner.Parent = loopLabel
+        loopLabel.Parent = loopFrame
+
+        -- Botão de Reset
+        resetButton = Instance.new("TextButton")
+        resetButton.Size = UDim2.new(0, 50, 0, 20)
+        resetButton.Position = UDim2.new(1, -140, 0.5, -10)
+        resetButton.BackgroundColor3 = themeColors.Button
+        resetButton.Text = "Reset"
+        resetButton.TextColor3 = themeColors.Text
+        resetButton.Font = Enum.Font.Gotham
+        resetButton.TextSize = 10
+        resetButton.TextScaled = true
+        resetButton.ZIndex = 16
+        local resetCorner = Instance.new("UICorner")
+        resetCorner.CornerRadius = UDim.new(0, 4)
+        resetCorner.Parent = resetButton
+        resetButton.Parent = button
+    end
+
+    local function startLoop(state)
+        if activeLoops[text] then
+            task.cancel(activeLoops[text])
+            activeLoops[text] = nil
+        end
+        if state and isLooping then
+            activeLoops[text] = task.spawn(function()
+                while isLooping and toggleIndicator.BackgroundColor3 == themeColors.ToggleOn do
+                    callback(true)
+                    task.wait(0.1)
+                end
+            end)
+        end
     end
 
     button.MouseButton1Click:Connect(function()
@@ -705,10 +767,42 @@ local function addButton(text, callback, isToggle)
             playSound("5852470908")
             print("Estado do toggle: " .. tostring(state))
             callback(state)
+            if isLooping then
+                startLoop(state)
+            end
         else
             callback()
         end
     end)
+
+    if loopFrame then
+        loopFrame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                playSound("5852470908")
+                isLooping = not isLooping
+                loopLabel.BackgroundColor3 = isLooping and themeColors.ToggleOn or themeColors.ToggleOff
+                print("Loop para " .. text .. ": " .. (isLooping and "Ativado" or "Desativado"))
+                startLoop(toggleIndicator.BackgroundColor3 == themeColors.ToggleOn)
+            end
+        end)
+    end
+
+    if resetButton then
+        resetButton.MouseButton1Click:Connect(function()
+            playSound("5852470908")
+            print("Reset clicado para: " .. text)
+            if isToggle then
+                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
+                isLooping = false
+                loopLabel.BackgroundColor3 = themeColors.ToggleOff
+                if activeLoops[text] then
+                    task.cancel(activeLoops[text])
+                    activeLoops[text] = nil
+                end
+                callback(false)
+            end
+        end)
+    end
 end
 
 -- Function to Add a Slider
@@ -721,7 +815,7 @@ local function addSlider(name, default, min, max, callback)
     holder.Visible = true
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0.4, 0)
+    label.Size = UDim2.new(0.5, 0, 0.4, 0)
     label.Position = UDim2.new(0, 0, 0, 0)
     label.Text = tostring(name) .. ": " .. tostring(default)
     label.TextColor3 = themeColors.Accent
@@ -732,8 +826,8 @@ local function addSlider(name, default, min, max, callback)
     label.Parent = holder
 
     local sliderBox = Instance.new("TextBox")
-    sliderBox.Size = UDim2.new(0.3, 0, 0.4, 0)
-    sliderBox.Position = UDim2.new(0.7, 0, 0, 0)
+    sliderBox.Size = UDim2.new(0.2, 0, 0.4, 0)
+    sliderBox.Position = UDim2.new(0.78, 0, 0, 0)
     sliderBox.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
     sliderBox.TextColor3 = themeColors.Text
     sliderBox.Font = Enum.Font.Gotham
@@ -745,6 +839,47 @@ local function addSlider(name, default, min, max, callback)
     sliderBoxCorner.CornerRadius = UDim.new(0, 6)
     sliderBoxCorner.Parent = sliderBox
     sliderBox.Parent = holder
+
+    -- Caixa de Loop com TextLabel
+    local loopFrame = Instance.new("Frame")
+    loopFrame.Size = UDim2.new(0, 50, 0, 20)
+    loopFrame.Position = UDim2.new(0.67, 0, 0, 2)
+    loopFrame.BackgroundColor3 = themeColors.Button
+    loopFrame.ZIndex = 16
+    local loopCorner = Instance.new("UICorner")
+    loopCorner.CornerRadius = UDim.new(0, 4)
+    loopCorner.Parent = loopFrame
+    loopFrame.Parent = holder
+
+    local loopLabel = Instance.new("TextLabel")
+    loopLabel.Size = UDim2.new(1, 0, 1, 0)
+    loopLabel.BackgroundColor3 = themeColors.ToggleOff
+    loopLabel.Text = "Loop"
+    loopLabel.TextColor3 = themeColors.Text
+    loopLabel.Font = Enum.Font.Gotham
+    loopLabel.TextSize = 10
+    loopLabel.TextScaled = true
+    loopLabel.ZIndex = 17
+    local loopLabelCorner = Instance.new("UICorner")
+    loopLabelCorner.CornerRadius = UDim.new(0, 4)
+    loopLabelCorner.Parent = loopLabel
+    loopLabel.Parent = loopFrame
+
+    -- Botão de Reset
+    local resetButton = Instance.new("TextButton")
+    resetButton.Size = UDim2.new(0, 50, 0, 20)
+    resetButton.Position = UDim2.new(0.56, 0, 0, 2)
+    resetButton.BackgroundColor3 = themeColors.Button
+    resetButton.Text = "Reset"
+    resetButton.TextColor3 = themeColors.Text
+    resetButton.Font = Enum.Font.Gotham
+    resetButton.TextSize = 10
+    resetButton.TextScaled = true
+    resetButton.ZIndex = 16
+    local resetCorner = Instance.new("UICorner")
+    resetCorner.CornerRadius = UDim.new(0, 4)
+    resetCorner.Parent = resetButton
+    resetButton.Parent = holder
 
     local sliderBar = Instance.new("Frame")
     sliderBar.Name = "SliderBar"
@@ -779,6 +914,7 @@ local function addSlider(name, default, min, max, callback)
     knob.Parent = sliderBar
 
     local currentValue = default
+    local isLooping = false
 
     local function updateSliderUI(value)
         sliderBox.Text = tostring(value)
@@ -794,6 +930,21 @@ local function addSlider(name, default, min, max, callback)
         currentValue = value
         callback(value)
         updateSliderUI(value)
+    end
+
+    local function startLoop()
+        if activeLoops[name] then
+            task.cancel(activeLoops[name])
+            activeLoops[name] = nil
+        end
+        if isLooping then
+            activeLoops[name] = task.spawn(function()
+                while isLooping do
+                    callback(currentValue)
+                    task.wait(0.1)
+                end
+            end)
+        end
     end
 
     local dragging = false
@@ -817,6 +968,9 @@ local function addSlider(name, default, min, max, callback)
             local value = min + (max - min) * relativeX
             value = math.floor(value + 0.5)
             applyValue(value)
+            if isLooping then
+                startLoop()
+            end
         end
     end)
     table.insert(connections, inputConnection)
@@ -825,8 +979,49 @@ local function addSlider(name, default, min, max, callback)
         local value = tonumber(sliderBox.Text) or default
         value = math.clamp(value, min, max)
         applyValue(value)
+        if isLooping then
+            startLoop()
+        end
     end)
     table.insert(connections, focusConnection)
+
+    loopFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            playSound("5852470908")
+            isLooping = not isLooping
+            loopLabel.BackgroundColor3 = isLooping and themeColors.ToggleOn or themeColors.ToggleOff
+            print("Loop para " .. name .. ": " .. (isLooping and "Ativado" or "Desativado"))
+            startLoop()
+        end
+    end)
+
+    resetButton.MouseButton1Click:Connect(function()
+        playSound("5852470908")
+        print("Reset clicado para: " .. name)
+        local defaultValue = defaultSettings[name] or default
+        if name == "Velocidade" then
+            defaultValue = defaultSettings.WalkSpeed
+        elseif name == "Pulo" then
+            defaultValue = defaultSettings.JumpPower
+        elseif name == "Velocidade de Voo" then
+            defaultValue = defaultSettings.FlySpeed
+        elseif name == "Alcance da Lanterna" then
+            defaultValue = defaultSettings.FlashlightRange
+        elseif name == "Distância ESP Player" then
+            defaultValue = defaultSettings.EspPlayerDistance
+        elseif name == "Distância ESP NPC" then
+            defaultValue = defaultSettings.EspNPCDistance
+        elseif name == "Distância de Seguimento" then
+            defaultValue = defaultSettings.FollowDistance
+        end
+        applyValue(defaultValue)
+        isLooping = false
+        loopLabel.BackgroundColor3 = themeColors.ToggleOff
+        if activeLoops[name] then
+            task.cancel(activeLoops[name])
+            activeLoops[name] = nil
+        end
+    end)
 end
 
 -- Function to Terminate Script
@@ -844,6 +1039,12 @@ local function terminateScript()
     slowMotionActive = false
     loopRotationEnabled = false
     selectedFollowPlayer = nil
+
+    -- Cancelar todos os loops ativos
+    for name, loop in pairs(activeLoops) do
+        task.cancel(loop)
+        activeLoops[name] = nil
+    end
 
     if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
         local root = PlayerCharacter.HumanoidRootPart
