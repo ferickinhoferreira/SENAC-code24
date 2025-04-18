@@ -1,6 +1,4 @@
--- Ferickinho Hub GUI (Modified GUI Logic with Intro Screen)
--- Data: 17 de Abril de 2025
--- Autor: [Adaptado e Revisado por Grok 3]
+-- Ferickinho Hub, criado para ajudar as pessoas (Made By Ferick)
 
 -- Services
 local Players = game:GetService("Players")
@@ -31,7 +29,7 @@ local minimizeButton = nil
 local floatingButton = nil
 local uiScale = nil
 local introFrame = nil
-local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local isMinimized = false
 local mouseLocked = true
 local flyEnabled = false
@@ -102,6 +100,18 @@ local themeColors = {
     SearchBar = Color3.fromRGB(50, 50, 50),
     Selected = Color3.fromRGB(60, 60, 60)
 }
+
+-- Sound Instances
+local function playSound(soundId)
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://" .. soundId
+    sound.Volume = 0.5
+    sound.Parent = SoundService
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
 
 -- Function to Disconnect All Connections
 local function disconnectAll()
@@ -195,6 +205,7 @@ local function createFloatingButton()
     table.insert(connections, dragConnection3)
 
     floatingButton.MouseButton1Click:Connect(function()
+        playSound("5852470908")
         isMinimized = false
         guiState.isMinimized = false
         mainFrame.Visible = true
@@ -203,22 +214,36 @@ local function createFloatingButton()
     end)
 end
 
--- Function to Create the Intro Screen
+-- Function to Create the New Intro Screen
 local function createIntroScreen()
     introFrame = Instance.new("Frame")
-    introFrame.Size = UDim2.new(1, 0, 1, 0)
+    introFrame.Size = UDim2.new(0.4, 0, 0.3, 0)
+    introFrame.Position = UDim2.new(0.3, 0, 0.35, 0)
     introFrame.BackgroundColor3 = themeColors.Background
+    introFrame.BackgroundTransparency = 1
     introFrame.ZIndex = 100
     introFrame.Parent = screenGui
 
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = introFrame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = themeColors.Accent
+    stroke.Thickness = 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Transparency = 1
+    stroke.Parent = introFrame
+
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.8, 0, 0.2, 0)
-    title.Position = UDim2.new(0.1, 0, 0.3, 0)
+    title.Size = UDim2.new(0.8, 0, 0.3, 0)
+    title.Position = UDim2.new(0.1, 0, 0.1, 0)
     title.BackgroundTransparency = 1
-    title.Text = "Bem-vindo ao Ferickinho Final Hub"
+    title.Text = "Ferickinho Final Hub"
     title.TextColor3 = themeColors.Text
+    title.TextTransparency = 1
     title.Font = Enum.Font.GothamBlack
-    title.TextSize = 28
+    title.TextSize = 24
     title.TextScaled = true
     title.TextWrapped = true
     title.ZIndex = 101
@@ -226,51 +251,125 @@ local function createIntroScreen()
 
     local description = Instance.new("TextLabel")
     description.Size = UDim2.new(0.8, 0, 0.3, 0)
-    description.Position = UDim2.new(0.1, 0, 0.5, 0)
+    description.Position = UDim2.new(0.1, 0, 0.4, 0)
     description.BackgroundTransparency = 1
-    description.Text = "Explore funcionalidades incríveis para melhorar sua experiência no jogo. Use o menu para acessar modificações, controles visuais e muito mais!"
+    description.Text = "Bem-vindo ao seu hub de modificações!"
     description.TextColor3 = themeColors.Text
+    description.TextTransparency = 1
     description.Font = Enum.Font.Gotham
-    description.TextSize = 18
+    description.TextSize = 16
     description.TextScaled = true
     description.TextWrapped = true
     description.ZIndex = 101
     description.Parent = introFrame
 
-    local skipButton = Instance.new("TextButton")
-    skipButton.Size = UDim2.new(0.2, 0, 0.1, 0)
-    skipButton.Position = UDim2.new(0.75, 0, 0.85, 0)
-    skipButton.BackgroundColor3 = themeColors.Button
-    skipButton.Text = "Pular"
-    skipButton.TextColor3 = themeColors.Text
-    skipButton.Font = Enum.Font.GothamBold
-    skipButton.TextSize = 14
-    skipButton.ZIndex = 101
-    skipButton.Parent = introFrame
+    local enterButton = Instance.new("TextButton")
+    enterButton.Size = UDim2.new(0.3, 0, 0.2, 0)
+    enterButton.Position = UDim2.new(0.35, 0, 0.75, 0)
+    enterButton.BackgroundColor3 = themeColors.Button
+    enterButton.BackgroundTransparency = 1
+    enterButton.Text = "Entrar"
+    enterButton.TextColor3 = themeColors.Text
+    enterButton.TextTransparency = 1
+    enterButton.Font = Enum.Font.GothamBold
+    enterButton.TextSize = 14
+    enterButton.ZIndex = 101
+    enterButton.Parent = introFrame
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = skipButton
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 6)
+    buttonCorner.Parent = enterButton
 
-    local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://81887163970018"
-    sound.Parent = introFrame
-    sound:Play()
+    local buttonStroke = Instance.new("UIStroke")
+    buttonStroke.Color = themeColors.Accent
+    buttonStroke.Thickness = 1
+    buttonStroke.Transparency = 1
+    buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    buttonStroke.Parent = enterButton
 
-    local function skipIntro()
-        sound:Stop()
-        introFrame:Destroy()
-        introFrame = nil
-        mainFrame.Visible = not guiState.isMinimized
-        floatingButton.Visible = guiState.isMinimized
+    -- Intro Sounds
+local wooshSound = Instance.new("Sound")
+wooshSound.SoundId = "rbxassetid://14006215368"
+wooshSound.Volume = 1.0 -- Aumentado de 0.5 para 1.0
+wooshSound.Parent = introFrame
+wooshSound:Play()
+
+local backgroundSound = Instance.new("Sound")
+backgroundSound.SoundId = "rbxassetid://6112625298"
+backgroundSound.Volume = 1.0 -- Aumentado de 0.5 para 1.0
+backgroundSound.Looped = false -- Removido o loop
+backgroundSound.Parent = introFrame
+backgroundSound:Play()
+
+    -- Animations
+    local function playIntroAnimations()
+        -- Fade in frame and stroke
+        TweenService:Create(introFrame, tweenInfo, {BackgroundTransparency = 0}):Play()
+        TweenService:Create(stroke, tweenInfo, {Transparency = 0}):Play()
+
+        -- Fade in and slide title
+        TweenService:Create(title, tweenInfo, {TextTransparency = 0, Position = UDim2.new(0.1, 0, 0.1, 0)}):Play()
+
+        -- Fade in and slide description
+        TweenService:Create(description, tweenInfo, {TextTransparency = 0, Position = UDim2.new(0.1, 0, 0.4, 0)}):Play()
+
+        -- Fade in button
+        TweenService:Create(enterButton, tweenInfo, {BackgroundTransparency = 0, TextTransparency = 0}):Play()
+        TweenService:Create(buttonStroke, tweenInfo, {Transparency = 0}):Play()
     end
 
-    skipButton.MouseButton1Click:Connect(skipIntro)
+    local function closeIntro()
+        -- Stop sounds
+        wooshSound:Stop()
+        backgroundSound:Stop()
 
-    -- Auto skip after 10 seconds
-    task.delay(10, function()
+        -- Fade out animations
+        TweenService:Create(introFrame, tweenInfo, {BackgroundTransparency = 1}):Play()
+        TweenService:Create(stroke, tweenInfo, {Transparency = 1}):Play()
+        TweenService:Create(title, tweenInfo, {TextTransparency = 1, Position = UDim2.new(0.1, 0, 0.05, 0)}):Play()
+        TweenService:Create(description, tweenInfo, {TextTransparency = 1, Position = UDim2.new(0.1, 0, 0.45, 0)}):Play()
+        TweenService:Create(enterButton, tweenInfo, {BackgroundTransparency = 1, TextTransparency = 1}):Play()
+        TweenService:Create(buttonStroke, tweenInfo, {Transparency = 1}):Play()
+
+        -- Destroy after animation
+        task.delay(tweenInfo.Time, function()
+            if introFrame then
+                wooshSound:Destroy()
+                backgroundSound:Destroy()
+                introFrame:Destroy()
+                introFrame = nil
+                mainFrame.Visible = not guiState.isMinimized
+                floatingButton.Visible = guiState.isMinimized
+            end
+        end)
+    end
+
+    -- Button hover effect
+    enterButton.MouseEnter:Connect(function()
+        TweenService:Create(enterButton, tweenInfo, {BackgroundColor3 = themeColors.Accent}):Play()
+        TweenService:Create(buttonStroke, tweenInfo, {Color = themeColors.Text}):Play()
+    end)
+
+    enterButton.MouseLeave:Connect(function()
+        TweenService:Create(enterButton, tweenInfo, {BackgroundColor3 = themeColors.Button}):Play()
+        TweenService:Create(buttonStroke, tweenInfo, {Color = themeColors.Accent}):Play()
+    end)
+
+    -- Button click
+    enterButton.MouseButton1Click:Connect(function()
+        playSound("5852470908")
+        closeIntro()
+    end)
+
+    -- Start animations
+    title.Position = UDim2.new(0.1, 0, 0.05, 0)
+    description.Position = UDim2.new(0.1, 0, 0.45, 0)
+    playIntroAnimations()
+
+    -- Auto close after 5 seconds
+    task.delay(5, function()
         if introFrame then
-            skipIntro()
+            closeIntro()
         end
     end)
 end
@@ -381,7 +480,7 @@ local function createGui()
     playersLabel.Text = "Jogadores: 0"
     playersLabel.TextColor3 = themeColors.Text
     playersLabel.Font = Enum.Font.Gotham
-    playersLabel.TextSize = 12
+    scriptsLabel.TextSize = 12
     playersLabel.TextXAlignment = Enum.TextXAlignment.Left
     playersLabel.ZIndex = 9
     playersLabel.Parent = infoFrame
@@ -440,6 +539,7 @@ local function createGui()
     minimizeCorner.Parent = minimizeButton
 
     minimizeButton.MouseButton1Click:Connect(function()
+        playSound("5852470908")
         isMinimized = true
         guiState.isMinimized = true
         mainFrame.Visible = false
@@ -562,12 +662,17 @@ local function addButton(text, callback, isToggle)
 
     if isToggle then
         button.MouseButton1Click:Connect(function()
+            playSound("5852470908")
             local state = toggleIndicator.BackgroundColor3 == themeColors.ToggleOff
             toggleIndicator.BackgroundColor3 = state and themeColors.ToggleOn or themeColors.ToggleOff
+            playSound("79640360096487")
             callback(state)
         end)
     else
-        button.MouseButton1Click:Connect(callback)
+        button.MouseButton1Click:Connect(function()
+            playSound("5852470908")
+            callback()
+        end)
     end
 end
 
@@ -1242,6 +1347,7 @@ local function createPlayerList()
         playerEntries[player] = entry
 
         nameButton.MouseButton1Click:Connect(function()
+            playSound("5852470908")
             selectedFollowPlayer = player
             for otherPlayer, otherEntry in pairs(playerEntries) do
                 otherEntry.PlayerName.BackgroundColor3 = otherPlayer == player and themeColors.Selected or themeColors.Button
@@ -1249,14 +1355,17 @@ local function createPlayerList()
         end)
 
         teleportButton.MouseButton1Click:Connect(function()
+            playSound("5852470908")
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
                 PlayerCharacter.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
             end
         end)
 
         followButton.MouseButton1Click:Connect(function()
+            playSound("5852470908")
             local state = followIndicator.BackgroundColor3 == themeColors.ToggleOff
             followIndicator.BackgroundColor3 = state and themeColors.ToggleOn or themeColors.ToggleOff
+            playSound("9083627113")
             if state then
                 selectedFollowPlayer = player
                 followEnabled = true
@@ -1501,8 +1610,10 @@ local function initializeGui()
             return
         end
         if input.KeyCode == Enum.KeyCode.Delete then
+            playSound("5852470908")
             terminateScript()
         elseif input.KeyCode == Enum.KeyCode.F1 then
+            playSound("5852470908")
             isMinimized = not isMinimized
             guiState.isMinimized = isMinimized
             if isMinimized then
