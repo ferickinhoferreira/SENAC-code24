@@ -1,4 +1,4 @@
--- Ferickinho Hub GUI (Modified GUI Logic)
+-- Ferickinho Hub GUI (Modified GUI Logic with Intro Screen)
 -- Data: 17 de Abril de 2025
 -- Autor: [Adaptado e Revisado por Grok 3]
 
@@ -10,6 +10,9 @@ local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local Stats = game:GetService("Stats")
+local TeleportService = game:GetService("TeleportService")
+local SoundService = game:GetService("SoundService")
 
 -- Player Variables
 local LocalPlayer = Players.LocalPlayer
@@ -27,6 +30,7 @@ local searchBar = nil
 local minimizeButton = nil
 local floatingButton = nil
 local uiScale = nil
+local introFrame = nil
 local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local isMinimized = false
 local mouseLocked = true
@@ -39,12 +43,16 @@ local fullbrightEnabled = false
 local infiniteJumpEnabled = false
 local flySpeed = 50
 local flashlightRange = 60
+local espPlayerDistance = 500
+local espNPCDistance = 500
+local walkSpeed = 16
+local jumpPower = 50
+local followDistance = 5
 local playerHighlights = {}
 local npcHighlights = {}
 local flashlightPart = nil
 local lastTouchPos = nil
 local selectedFollowPlayer = nil
-local followDistance = 5
 local followEnabled = false
 local playerEntries = {}
 local defaultLighting = {
@@ -60,7 +68,26 @@ local defaultSettings = {
     JumpPower = 50,
     FlySpeed = 50,
     FlashlightRange = 60,
-    FollowDistance = 5
+    FollowDistance = 5,
+    EspPlayerDistance = 500,
+    EspNPCDistance = 500
+}
+local guiState = {
+    isMinimized = false,
+    flyEnabled = false,
+    noclipEnabled = false,
+    espPlayerEnabled = false,
+    espNPCEnabled = false,
+    flashlightEnabled = false,
+    fullbrightEnabled = false,
+    infiniteJumpEnabled = false,
+    walkSpeed = 16,
+    jumpPower = 50,
+    flySpeed = 50,
+    flashlightRange = 60,
+    espPlayerDistance = 500,
+    espNPCDistance = 500,
+    followDistance = 5
 }
 
 -- Theme Variables
@@ -169,9 +196,82 @@ local function createFloatingButton()
 
     floatingButton.MouseButton1Click:Connect(function()
         isMinimized = false
+        guiState.isMinimized = false
         mainFrame.Visible = true
         floatingButton.Visible = false
         adjustGuiForDevice()
+    end)
+end
+
+-- Function to Create the Intro Screen
+local function createIntroScreen()
+    introFrame = Instance.new("Frame")
+    introFrame.Size = UDim2.new(1, 0, 1, 0)
+    introFrame.BackgroundColor3 = themeColors.Background
+    introFrame.ZIndex = 100
+    introFrame.Parent = screenGui
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.8, 0, 0.2, 0)
+    title.Position = UDim2.new(0.1, 0, 0.3, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "Bem-vindo ao Ferickinho Final Hub"
+    title.TextColor3 = themeColors.Text
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 28
+    title.TextScaled = true
+    title.TextWrapped = true
+    title.ZIndex = 101
+    title.Parent = introFrame
+
+    local description = Instance.new("TextLabel")
+    description.Size = UDim2.new(0.8, 0, 0.3, 0)
+    description.Position = UDim2.new(0.1, 0, 0.5, 0)
+    description.BackgroundTransparency = 1
+    description.Text = "Explore funcionalidades incríveis para melhorar sua experiência no jogo. Use o menu para acessar modificações, controles visuais e muito mais!"
+    description.TextColor3 = themeColors.Text
+    description.Font = Enum.Font.Gotham
+    description.TextSize = 18
+    description.TextScaled = true
+    description.TextWrapped = true
+    description.ZIndex = 101
+    description.Parent = introFrame
+
+    local skipButton = Instance.new("TextButton")
+    skipButton.Size = UDim2.new(0.2, 0, 0.1, 0)
+    skipButton.Position = UDim2.new(0.75, 0, 0.85, 0)
+    skipButton.BackgroundColor3 = themeColors.Button
+    skipButton.Text = "Pular"
+    skipButton.TextColor3 = themeColors.Text
+    skipButton.Font = Enum.Font.GothamBold
+    skipButton.TextSize = 14
+    skipButton.ZIndex = 101
+    skipButton.Parent = introFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = skipButton
+
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://81887163970018"
+    sound.Parent = introFrame
+    sound:Play()
+
+    local function skipIntro()
+        sound:Stop()
+        introFrame:Destroy()
+        introFrame = nil
+        mainFrame.Visible = not guiState.isMinimized
+        floatingButton.Visible = guiState.isMinimized
+    end
+
+    skipButton.MouseButton1Click:Connect(skipIntro)
+
+    -- Auto skip after 10 seconds
+    task.delay(10, function()
+        if introFrame then
+            skipIntro()
+        end
     end)
 end
 
@@ -192,6 +292,7 @@ local function createGui()
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
     mainFrame.Draggable = true
+    mainFrame.Visible = false
     mainFrame.Parent = screenGui
 
     local corner = Instance.new("UICorner")
@@ -205,7 +306,7 @@ local function createGui()
     stroke.Parent = mainFrame
 
     topBar = Instance.new("Frame")
-    topBar.Size = UDim2.new(1, 0, 0, 40)
+    topBar.Size = UDim2.new(1, 0, 0, 60)
     topBar.BackgroundColor3 = themeColors.TopBar
     topBar.BorderSizePixel = 0
     topBar.ZIndex = 8
@@ -216,20 +317,116 @@ local function createGui()
     topBarCorner.Parent = topBar
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.7, 0, 0, 30)
-    title.Position = UDim2.new(0.05, 0, 0.5, -15)
+    title.Size = UDim2.new(0.6, 0, 0, 20)
+    title.Position = UDim2.new(0.2, 0, 0, 5)
     title.BackgroundTransparency = 1
     title.Text = "Ferickinho Final Hub"
     title.TextColor3 = themeColors.Text
     title.Font = Enum.Font.GothamBlack
     title.TextSize = 18
-    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextXAlignment = Enum.TextXAlignment.Center
     title.ZIndex = 9
     title.Parent = topBar
 
+    local infoFrame = Instance.new("Frame")
+    infoFrame.Size = UDim2.new(1, -20, 0, 20)
+    infoFrame.Position = UDim2.new(0, 10, 0, 30)
+    infoFrame.BackgroundTransparency = 1
+    infoFrame.ZIndex = 9
+    infoFrame.Parent = topBar
+
+    local infoLayout = Instance.new("UIListLayout")
+    infoLayout.FillDirection = Enum.FillDirection.Horizontal
+    infoLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    infoLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    infoLayout.Padding = UDim.new(0, 10)
+    infoLayout.Parent = infoFrame
+
+    local pingLabel = Instance.new("TextLabel")
+    pingLabel.Size = UDim2.new(0, 80, 0, 20)
+    pingLabel.BackgroundTransparency = 1
+    pingLabel.Text = "Ping: 0 ms"
+    pingLabel.TextColor3 = themeColors.Text
+    pingLabel.Font = Enum.Font.Gotham
+    pingLabel.TextSize = 12
+    pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+    pingLabel.ZIndex = 9
+    pingLabel.Parent = infoFrame
+
+    local fpsLabel = Instance.new("TextLabel")
+    fpsLabel.Size = UDim2.new(0, 80, 0, 20)
+    fpsLabel.BackgroundTransparency = 1
+    fpsLabel.Text = "FPS: 0"
+    fpsLabel.TextColor3 = themeColors.Text
+    fpsLabel.Font = Enum.Font.Gotham
+    fpsLabel.TextSize = 12
+    fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    fpsLabel.ZIndex = 9
+    fpsLabel.Parent = infoFrame
+
+    local scriptsLabel = Instance.new("TextLabel")
+    scriptsLabel.Size = UDim2.new(0, 80, 0, 20)
+    scriptsLabel.BackgroundTransparency = 1
+    scriptsLabel.Text = "Scripts: 0"
+    scriptsLabel.TextColor3 = themeColors.Text
+    scriptsLabel.Font = Enum.Font.Gotham
+    scriptsLabel.TextSize = 12
+    scriptsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    scriptsLabel.ZIndex = 9
+    scriptsLabel.Parent = infoFrame
+
+    local playersLabel = Instance.new("TextLabel")
+    playersLabel.Size = UDim2.new(0, 80, 0, 20)
+    playersLabel.BackgroundTransparency = 1
+    playersLabel.Text = "Jogadores: 0"
+    playersLabel.TextColor3 = themeColors.Text
+    playersLabel.Font = Enum.Font.Gotham
+    playersLabel.TextSize = 12
+    playersLabel.TextXAlignment = Enum.TextXAlignment.Left
+    playersLabel.ZIndex = 9
+    playersLabel.Parent = infoFrame
+
+    local statsConnection = RunService.RenderStepped:Connect(function(deltaTime)
+        local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue() or 0)
+        pingLabel.Text = string.format("Ping: %d ms", ping)
+        if ping <= 100 then
+            pingLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        elseif ping <= 200 then
+            pingLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+        elseif ping <= 300 then
+            pingLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+        else
+            pingLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        end
+
+        local fps = math.floor(1 / deltaTime)
+        fpsLabel.Text = string.format("FPS: %d", fps)
+        if fps >= 60 then
+            fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        elseif fps >= 30 then
+            fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+        elseif fps >= 15 then
+            fpsLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+        else
+            fpsLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        end
+
+        local activeScripts = 0
+        if flyEnabled then activeScripts = activeScripts + 1 end
+        if noclipEnabled then activeScripts = activeScripts + 1 end
+        if espPlayerEnabled then activeScripts = activeScripts + 1 end
+        if espNPCEnabled then activeScripts = activeScripts + 1 end
+        if flashlightEnabled then activeScripts = activeScripts + 1 end
+        if fullbrightEnabled then activeScripts = activeScripts + 1 end
+        if infiniteJumpEnabled then activeScripts = activeScripts + 1 end
+        scriptsLabel.Text = string.format("Scripts: %d", activeScripts)
+        playersLabel.Text = string.format("Jogadores: %d", #Players:GetPlayers())
+    end)
+    table.insert(connections, statsConnection)
+
     minimizeButton = Instance.new("TextButton")
     minimizeButton.Size = UDim2.new(0, 30, 0, 30)
-    minimizeButton.Position = UDim2.new(1, -40, 0.5, -15)
+    minimizeButton.Position = UDim2.new(1, -35, 0, 5)
     minimizeButton.BackgroundColor3 = themeColors.Button
     minimizeButton.Text = "−"
     minimizeButton.TextColor3 = themeColors.Text
@@ -244,13 +441,14 @@ local function createGui()
 
     minimizeButton.MouseButton1Click:Connect(function()
         isMinimized = true
+        guiState.isMinimized = true
         mainFrame.Visible = false
         floatingButton.Visible = true
     end)
 
     searchBar = Instance.new("TextBox")
     searchBar.Size = UDim2.new(1, -20, 0, 30)
-    searchBar.Position = UDim2.new(0, 10, 0, 50)
+    searchBar.Position = UDim2.new(0, 10, 0, 70)
     searchBar.BackgroundColor3 = themeColors.SearchBar
     searchBar.TextColor3 = themeColors.Text
     searchBar.PlaceholderText = "Escreva algo para pesquisar"
@@ -271,8 +469,8 @@ local function createGui()
     searchPadding.Parent = searchBar
 
     scrollingFrame = Instance.new("ScrollingFrame")
-    scrollingFrame.Size = UDim2.new(1, 0, 1, -90)
-    scrollingFrame.Position = UDim2.new(0, 0, 0, 90)
+    scrollingFrame.Size = UDim2.new(1, 0, 1, -110)
+    scrollingFrame.Position = UDim2.new(0, 0, 0, 110)
     scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollingFrame.ScrollBarThickness = 4
     scrollingFrame.BackgroundTransparency = 1
@@ -291,6 +489,7 @@ local function createGui()
     padding.Parent = scrollingFrame
 
     createFloatingButton()
+    createIntroScreen()
 
     searchBar:GetPropertyChangedSignal("Text"):Connect(function()
         local searchText = searchBar.Text:lower()
@@ -361,77 +560,6 @@ local function addButton(text, callback, isToggle)
         toggleIndicator.Parent = button
     end
 
-    -- Reset Button
-    local resetButton = Instance.new("TextButton")
-    resetButton.Size = UDim2.new(0, 60, 0, 20)
-    resetButton.Position = isToggle and UDim2.new(1, -95, 0.5, -10) or UDim2.new(1, -70, 0.5, -10)
-    resetButton.BackgroundColor3 = themeColors.Button
-    resetButton.Text = "Resetar"
-    resetButton.TextColor3 = themeColors.Text
-    resetButton.Font = Enum.Font.Gotham
-    resetButton.TextSize = 10
-    resetButton.ZIndex = 8
-    local resetCorner = Instance.new("UICorner")
-    resetCorner.CornerRadius = UDim.new(0, 6)
-    resetCorner.Parent = resetButton
-    resetButton.Parent = button
-
-    resetButton.MouseButton1Click:Connect(function()
-        if text == "Pulo Infinito" then
-            infiniteJumpEnabled = false
-            if toggleIndicator then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-            end
-        elseif text == "Voar" then
-            flyEnabled = false
-            flySpeed = defaultSettings.FlySpeed
-            if toggleIndicator then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-            end
-        elseif text == "Noclip" then
-            noclipEnabled = false
-            if toggleIndicator then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-            end
-        elseif text == "Esp Player" then
-            espPlayerEnabled = false
-            if toggleIndicator then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-            end
-        elseif text == "Esp NPC" then
-            espNPCEnabled = false
-            if toggleIndicator then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-            end
-        elseif text == "Flashlight" then
-            flashlightEnabled = false
-            flashlightRange = defaultSettings.FlashlightRange
-            if toggleIndicator then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-            end
-        elseif text == "Fullbright" then
-            fullbrightEnabled = false
-            if toggleIndicator then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-            end
-        elseif text == "Velocidade" then
-            if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
-                PlayerCharacter.Humanoid.WalkSpeed = defaultSettings.WalkSpeed
-            end
-        elseif text == "Pulo" then
-            if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
-                PlayerCharacter.Humanoid.JumpPower = defaultSettings.JumpPower
-            end
-        elseif text == "Velocidade de Voo" then
-            flySpeed = defaultSettings.FlySpeed
-        elseif text == "Alcance da Lanterna" then
-            flashlightRange = defaultSettings.FlashlightRange
-        elseif text == "Distância de Seguimento" then
-            followDistance = defaultSettings.FollowDistance
-        end
-        callback(false)
-    end)
-
     if isToggle then
         button.MouseButton1Click:Connect(function()
             local state = toggleIndicator.BackgroundColor3 == themeColors.ToggleOff
@@ -439,9 +567,7 @@ local function addButton(text, callback, isToggle)
             callback(state)
         end)
     else
-        button.MouseButton1Click:Connect(function()
-            callback()
-        end)
+        button.MouseButton1Click:Connect(callback)
     end
 end
 
@@ -482,8 +608,8 @@ local function addSlider(name, default, min, max, callback)
 
     local sliderBar = Instance.new("Frame")
     sliderBar.Name = "SliderBar"
-    sliderBar.Size = UDim2.new(1, 0, 0.2, 0)
-    sliderBar.Position = UDim2.new(0, 0, 0.6, 0)
+    sliderBar.Size = UDim2.new(1, 0, 0.3, 0)
+    sliderBar.Position = UDim2.new(0, 0, 0.5, 0)
     sliderBar.BackgroundColor3 = themeColors.Button
     sliderBar.ZIndex = 7
     local sliderBarCorner = Instance.new("UICorner")
@@ -512,6 +638,24 @@ local function addSlider(name, default, min, max, callback)
     knobCorner.Parent = knob
     knob.Parent = sliderBar
 
+    local currentValue = default
+
+    local function updateSliderUI(value)
+        sliderBox.Text = tostring(value)
+        label.Text = tostring(name) .. ": " .. tostring(value)
+        label.TextColor3 = themeColors.Accent
+        fillBar.BackgroundColor3 = themeColors.Accent
+        knob.BackgroundColor3 = themeColors.Accent
+        knob.Position = UDim2.new((value - min) / (max - min), -8, 0.5, -8)
+        TweenService:Create(fillBar, tweenInfo, {Size = UDim2.new((value - min) / (max - min), 0, 1, 0)}):Play()
+    end
+
+    local function applyValue(value)
+        currentValue = value
+        callback(value)
+        updateSliderUI(value)
+    end
+
     local dragging = false
     local dragConnection1 = knob.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -532,11 +676,7 @@ local function addSlider(name, default, min, max, callback)
             local relativeX = math.clamp((input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
             local value = min + (max - min) * relativeX
             value = math.floor(value + 0.5)
-            sliderBox.Text = tostring(value)
-            label.Text = tostring(name) .. ": " .. tostring(value)
-            knob.Position = UDim2.new(relativeX, -8, 0.5, -8)
-            TweenService:Create(fillBar, tweenInfo, {Size = UDim2.new((value - min) / (max - min), 0, 1, 0)}):Play()
-            callback(value)
+            applyValue(value)
         end
     end)
     table.insert(connections, inputConnection)
@@ -544,11 +684,7 @@ local function addSlider(name, default, min, max, callback)
     local focusConnection = sliderBox.FocusLost:Connect(function()
         local value = tonumber(sliderBox.Text) or default
         value = math.clamp(value, min, max)
-        sliderBox.Text = tostring(value)
-        label.Text = tostring(name) .. ": " .. tostring(value)
-        knob.Position = UDim2.new((value - min) / (max - min), -8, 0.5, -8)
-        TweenService:Create(fillBar, tweenInfo, {Size = UDim2.new((value - min) / (max - min), 0, 1, 0)}):Play()
-        callback(value)
+        applyValue(value)
     end)
     table.insert(connections, focusConnection)
 end
@@ -606,8 +742,12 @@ local function terminateScript()
         PlayerCharacter.Humanoid.WalkSpeed = defaultSettings.WalkSpeed
         PlayerCharacter.Humanoid.JumpPower = defaultSettings.JumpPower
     end
+    walkSpeed = defaultSettings.WalkSpeed
+    jumpPower = defaultSettings.JumpPower
     flySpeed = defaultSettings.FlySpeed
     flashlightRange = defaultSettings.FlashlightRange
+    espPlayerDistance = defaultSettings.EspPlayerDistance
+    espNPCDistance = defaultSettings.EspNPCDistance
     followDistance = defaultSettings.FollowDistance
 
     Lighting.Brightness = defaultLighting.Brightness
@@ -629,6 +769,7 @@ end
 -- Fly Functionality
 local function toggleFly(enabled)
     flyEnabled = enabled
+    guiState.flyEnabled = enabled
     local root = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
@@ -690,6 +831,7 @@ end
 -- Noclip Functionality
 local function toggleNoclip(enabled)
     noclipEnabled = enabled
+    guiState.noclipEnabled = enabled
     if enabled then
         local noclipConnection = RunService.Stepped:Connect(function()
             if not noclipEnabled or not PlayerCharacter then
@@ -716,32 +858,65 @@ end
 -- ESP Player Functionality
 local function toggleEspPlayer(enabled)
     espPlayerEnabled = enabled
+    guiState.espPlayerEnabled = enabled
     if enabled then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
-                local highlight = Instance.new("Highlight")
-                highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                highlight.Adornee = player.Character
-                highlight.Parent = player.Character
-                playerHighlights[player] = highlight
+                local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+                local playerRoot = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
+                if rootPart and playerRoot then
+                    local distance = (playerRoot.Position - rootPart.Position).Magnitude
+                    if distance <= espPlayerDistance then
+                        local highlight = Instance.new("Highlight")
+                        highlight.FillColor = themeColors.Accent
+                        highlight.OutlineColor = themeColors.Accent
+                        highlight.Adornee = player.Character
+                        highlight.Parent = player.Character
+                        playerHighlights[player] = highlight
+                    end
+                end
             end
         end
         local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
             if player ~= LocalPlayer then
                 player.CharacterAdded:Connect(function(character)
                     if espPlayerEnabled then
-                        local highlight = Instance.new("Highlight")
-                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                        highlight.Adornee = character
-                        highlight.Parent = character
-                        playerHighlights[player] = highlight
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        local playerRoot = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
+                        if rootPart and playerRoot then
+                            local distance = (playerRoot.Position - rootPart.Position).Magnitude
+                            if distance <= espPlayerDistance then
+                                local highlight = Instance.new("Highlight")
+                                highlight.FillColor = themeColors.Accent
+                                highlight.OutlineColor = themeColors.Accent
+                                highlight.Adornee = character
+                                highlight.Parent = character
+                                playerHighlights[player] = highlight
+                            end
+                        end
                     end
                 end)
             end
         end)
         table.insert(connections, playerAddedConnection)
+
+        local distanceCheckConnection = RunService.RenderStepped:Connect(function()
+            if not espPlayerEnabled then return end
+            local playerRoot = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
+            if not playerRoot then return end
+
+            for player, highlight in pairs(playerHighlights) do
+                local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if rootPart then
+                    local distance = (playerRoot.Position - rootPart.Position).Magnitude
+                    highlight.Enabled = distance <= espPlayerDistance
+                else
+                    highlight:Destroy()
+                    playerHighlights[player] = nil
+                end
+            end
+        end)
+        table.insert(connections, distanceCheckConnection)
     else
         for _, highlight in pairs(playerHighlights) do
             highlight:Destroy()
@@ -753,28 +928,61 @@ end
 -- ESP NPC Functionality
 local function toggleEspNPC(enabled)
     espNPCEnabled = enabled
+    guiState.espNPCEnabled = enabled
     if enabled then
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(obj) then
-                local highlight = Instance.new("Highlight")
-                highlight.FillColor = Color3.fromRGB(0, 0, 255)
-                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
-                highlight.Adornee = obj
-                highlight.Parent = obj
-                npcHighlights[obj] = highlight
+                local rootPart = obj:FindFirstChild("HumanoidRootPart")
+                local playerRoot = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
+                if rootPart and playerRoot then
+                    local distance = (playerRoot.Position - rootPart.Position).Magnitude
+                    if distance <= espNPCDistance then
+                        local highlight = Instance.new("Highlight")
+                        highlight.FillColor = themeColors.Accent
+                        highlight.OutlineColor = themeColors.Accent
+                        highlight.Adornee = obj
+                        highlight.Parent = obj
+                        npcHighlights[obj] = highlight
+                    end
+                end
             end
         end
         local descendantAddedConnection = Workspace.DescendantAdded:Connect(function(obj)
             if espNPCEnabled and obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(obj) then
-                local highlight = Instance.new("Highlight")
-                highlight.FillColor = Color3.fromRGB(0, 0, 255)
-                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
-                highlight.Adornee = obj
-                highlight.Parent = obj
-                npcHighlights[obj] = highlight
+                local rootPart = obj:FindFirstChild("HumanoidRootPart")
+                local playerRoot = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
+                if rootPart and playerRoot then
+                    local distance = (playerRoot.Position - rootPart.Position).Magnitude
+                    if distance <= espNPCDistance then
+                        local highlight = Instance.new("Highlight")
+                        highlight.FillColor = themeColors.Accent
+                        highlight.OutlineColor = themeColors.Accent
+                        highlight.Adornee = obj
+                        highlight.Parent = obj
+                        npcHighlights[obj] = highlight
+                    end
+                end
             end
         end)
         table.insert(connections, descendantAddedConnection)
+
+        local distanceCheckConnection = RunService.RenderStepped:Connect(function()
+            if not espNPCEnabled then return end
+            local playerRoot = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
+            if not playerRoot then return end
+
+            for obj, highlight in pairs(npcHighlights) do
+                local rootPart = obj:FindFirstChild("HumanoidRootPart")
+                if rootPart then
+                    local distance = (playerRoot.Position - rootPart.Position).Magnitude
+                    highlight.Enabled = distance <= espNPCDistance
+                else
+                    highlight:Destroy()
+                    npcHighlights[obj] = nil
+                end
+            end
+        end)
+        table.insert(connections, distanceCheckConnection)
     else
         for _, highlight in pairs(npcHighlights) do
             highlight:Destroy()
@@ -786,6 +994,7 @@ end
 -- Flashlight Functionality
 local function toggleFlashlight(enabled)
     flashlightEnabled = enabled
+    guiState.flashlightEnabled = enabled
     if enabled then
         flashlightPart = Instance.new("Part")
         flashlightPart.Name = "FlashlightPart"
@@ -795,18 +1004,41 @@ local function toggleFlashlight(enabled)
         flashlightPart.Anchored = true
         flashlightPart.Parent = Workspace
 
+        local attachment = Instance.new("Attachment")
+        attachment.Name = "LightAttachment"
+        attachment.Parent = flashlightPart
+
         local spotlight = Instance.new("SpotLight")
-        spotlight.Name = "Flashlight"
-        spotlight.Brightness = 5
+        spotlight.Name = "FlashlightSpot"
+        spotlight.Brightness = 10
         spotlight.Range = flashlightRange
-        spotlight.Angle = 10
-        spotlight.Color = Color3.fromRGB(200, 255, 200)
-        spotlight.Shadows = false
+        spotlight.Angle = 45
+        spotlight.Color = Color3.fromRGB(255, 245, 230)
+        spotlight.Shadows = true
         spotlight.Enabled = true
-        spotlight.Parent = flashlightPart
+        spotlight.Parent = attachment
+
+        local spotlightSoft = Instance.new("SpotLight")
+        spotlightSoft.Name = "FlashlightSpotSoft"
+        spotlightSoft.Brightness = 2
+        spotlightSoft.Range = flashlightRange
+        spotlightSoft.Angle = 60
+        spotlightSoft.Color = Color3.fromRGB(255, 245, 230)
+        spotlightSoft.Shadows = false
+        spotlightSoft.Enabled = true
+        spotlightSoft.Parent = attachment
+
+        local pointLight = Instance.new("PointLight")
+        pointLight.Name = "FlashlightAmbient"
+        pointLight.Brightness = 3
+        pointLight.Range = 20
+        pointLight.Color = Color3.fromRGB(255, 245, 230)
+        pointLight.Shadows = false
+        pointLight.Enabled = true
+        pointLight.Parent = attachment
 
         local flashlightConnection = RunService.RenderStepped:Connect(function()
-            if not flashlightEnabled or not flashlightPart or not spotlight then
+            if not flashlightEnabled or not flashlightPart or not spotlight or not pointLight then
                 if flashlightConnection then
                     flashlightConnection:Disconnect()
                 end
@@ -829,6 +1061,7 @@ local function toggleFlashlight(enabled)
 
             flashlightPart.CFrame = CFrame.new(flashlightPart.Position, targetPos)
             spotlight.Range = flashlightRange
+            spotlightSoft.Range = flashlightRange
         end)
         table.insert(connections, flashlightConnection)
 
@@ -847,13 +1080,13 @@ local function toggleFlashlight(enabled)
             flashlightPart = nil
         end
         lastTouchPos = nil
-        Lighting.Technology = defaultLighting.Technology
     end
 end
 
 -- Infinite Jump Functionality
 local function toggleInfiniteJump(enabled)
     infiniteJumpEnabled = enabled
+    guiState.infiniteJumpEnabled = enabled
 
     if enabled and not _G.infinJumpStarted then
         _G.infinJumpStarted = true
@@ -861,14 +1094,12 @@ local function toggleInfiniteJump(enabled)
         local player = Players.LocalPlayer
         local flying = false
 
-        -- Notification
         StarterGui:SetCore("SendNotification", {
             Title = "Infinite Jump Ativado",
             Text = "Pulo padrão no chão, impulso maior no ar!",
             Duration = 5
         })
 
-        -- Fly loop for air jumps
         local function flyLoop()
             while flying and infiniteJumpEnabled do
                 local char = player.Character
@@ -879,7 +1110,7 @@ local function toggleInfiniteJump(enabled)
                     if humanoid and root then
                         local state = humanoid:GetState()
                         if state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping then
-                            root.Velocity = Vector3.new(root.Velocity.X, 80, root.Velocity.Z) -- Strong air jump
+                            root.Velocity = Vector3.new(root.Velocity.X, 80, root.Velocity.Z)
                         end
                     end
                 end
@@ -887,7 +1118,6 @@ local function toggleInfiniteJump(enabled)
             end
         end
 
-        -- Start flying on Space press
         local inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if not gameProcessed and input.KeyCode == Enum.KeyCode.Space and infiniteJumpEnabled then
                 flying = true
@@ -896,7 +1126,6 @@ local function toggleInfiniteJump(enabled)
         end)
         table.insert(connections, inputBeganConnection)
 
-        -- Stop flying on Space release
         local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
             if input.KeyCode == Enum.KeyCode.Space then
                 flying = false
@@ -911,6 +1140,7 @@ end
 -- Fullbright Functionality
 local function toggleFullbright(enabled)
     fullbrightEnabled = enabled
+    guiState.fullbrightEnabled = enabled
     if enabled then
         Lighting.Brightness = 1
         Lighting.FogEnd = 100000
@@ -1116,6 +1346,84 @@ local function setupClassicCamera()
     end)
 end
 
+-- Function to Reapply GUI State
+local function reapplyGuiState(character)
+    PlayerCharacter = character or LocalPlayer.Character
+    if not PlayerCharacter then return end
+
+    -- Reapply character-specific settings
+    if PlayerCharacter:FindFirstChildOfClass("Humanoid") then
+        PlayerCharacter.Humanoid.WalkSpeed = guiState.walkSpeed
+        PlayerCharacter.Humanoid.JumpPower = guiState.jumpPower
+    end
+
+    -- Reapply toggles
+    if guiState.flyEnabled then
+        toggleFly(true)
+    end
+    if guiState.noclipEnabled then
+        toggleNoclip(true)
+    end
+    if guiState.espPlayerEnabled then
+        toggleEspPlayer(true)
+    end
+    if guiState.espNPCEnabled then
+        toggleEspNPC(true)
+    end
+    if guiState.flashlightEnabled then
+        toggleFlashlight(true)
+    end
+    if guiState.fullbrightEnabled then
+        toggleFullbright(true)
+    end
+    if guiState.infiniteJumpEnabled then
+        toggleInfiniteJump(true)
+    end
+
+    -- Update GUI visibility
+    if screenGui and not introFrame then
+        screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+        if guiState.isMinimized then
+            mainFrame.Visible = false
+            floatingButton.Visible = true
+        else
+            mainFrame.Visible = true
+            floatingButton.Visible = false
+        end
+    end
+
+    -- Reapply slider values
+    for _, child in ipairs(scrollingFrame:GetChildren()) do
+        if child:IsA("Frame") and child:FindFirstChild("SliderBar") then
+            local label = child:FindFirstChildOfClass("TextLabel")
+            local sliderBox = child:FindFirstChildOfClass("TextBox")
+            local name = string.match(label.Text, "^([^:]+)")
+            if name == "Velocidade" then
+                sliderBox.Text = tostring(guiState.walkSpeed)
+                label.Text = "Velocidade: " .. guiState.walkSpeed
+            elseif name == "Pulo" then
+                sliderBox.Text = tostring(guiState.jumpPower)
+                label.Text = "Pulo: " .. guiState.jumpPower
+            elseif name == "Velocidade de Voo" then
+                sliderBox.Text = tostring(guiState.flySpeed)
+                label.Text = "Velocidade de Voo: " .. guiState.flySpeed
+            elseif name == "Distância ESP Player" then
+                sliderBox.Text = tostring(guiState.espPlayerDistance)
+                label.Text = "Distância ESP Player: " .. guiState.espPlayerDistance
+            elseif name == "Distância ESP NPC" then
+                sliderBox.Text = tostring(guiState.espNPCDistance)
+                label.Text = "Distância ESP NPC: " .. guiState.espNPCDistance
+            elseif name == "Alcance da Lanterna" then
+                sliderBox.Text = tostring(guiState.flashlightRange)
+                label.Text = "Alcance da Lanterna: " .. guiState.flashlightRange
+            elseif name == "Distância de Seguimento" then
+                sliderBox.Text = tostring(guiState.followDistance)
+                label.Text = "Distância de Seguimento: " .. guiState.followDistance
+            end
+        end
+    end
+end
+
 -- Main Function to Initialize the GUI
 local function initializeGui()
     createGui()
@@ -1123,11 +1431,15 @@ local function initializeGui()
 
     addSectionLabel("Modificações do Jogador")
     addSlider("Velocidade", 16, 16, 1000, function(value)
+        walkSpeed = value
+        guiState.walkSpeed = value
         if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
             PlayerCharacter.Humanoid.WalkSpeed = value
         end
     end)
     addSlider("Pulo", 50, 50, 600, function(value)
+        jumpPower = value
+        guiState.jumpPower = value
         if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
             PlayerCharacter.Humanoid.JumpPower = value
         end
@@ -1140,6 +1452,7 @@ local function initializeGui()
     end, true)
     addSlider("Velocidade de Voo", 50, 10, 200, function(value)
         flySpeed = value
+        guiState.flySpeed = value
     end)
     addButton("Noclip", function(state)
         toggleNoclip(state)
@@ -1149,22 +1462,32 @@ local function initializeGui()
     addButton("Esp Player", function(state)
         toggleEspPlayer(state)
     end, true)
+    addSlider("Distância ESP Player", 500, 50, 1000, function(value)
+        espPlayerDistance = value
+        guiState.espPlayerDistance = value
+    end)
     addButton("Esp NPC", function(state)
         toggleEspNPC(state)
+    end, true)
+    addSlider("Distância ESP NPC", 500, 50, 1000, function(value)
+        espNPCDistance = value
+        guiState.espNPCDistance = value
+    end)
+    addButton("Fullbright", function(state)
+        toggleFullbright(state)
     end, true)
     addButton("Flashlight", function(state)
         toggleFlashlight(state)
     end, true)
     addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
         flashlightRange = value
+        guiState.flashlightRange = value
     end)
-    addButton("Fullbright", function(state)
-        toggleFullbright(state)
-    end, true)
 
     addSectionLabel("Lista de Jogadores")
     addSlider("Distância de Seguimento", 5, 1, 50, function(value)
         followDistance = value
+        guiState.followDistance = value
     end)
     createPlayerList()
 
@@ -1181,6 +1504,7 @@ local function initializeGui()
             terminateScript()
         elseif input.KeyCode == Enum.KeyCode.F1 then
             isMinimized = not isMinimized
+            guiState.isMinimized = isMinimized
             if isMinimized then
                 mainFrame.Visible = false
                 floatingButton.Visible = true
@@ -1189,32 +1513,32 @@ local function initializeGui()
                 floatingButton.Visible = false
                 adjustGuiForDevice()
             end
-        elseif input.KeyCode == Enum.KeyCode.Home then
-            mouseLocked = not mouseLocked
-            UserInputService.MouseBehavior = mouseLocked and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCurrentPosition
         end
     end)
     table.insert(connections, inputConnection)
 
-    LocalPlayer.CharacterAdded:Connect(function(character)
-        PlayerCharacter = character
-        if flyEnabled then
-            toggleFly(false)
-            toggleFly(true)
-        end
-        if noclipEnabled then
-            toggleNoclip(true)
-        end
-        if flashlightEnabled then
-            toggleFlashlight(false)
-            toggleFlashlight(true)
-        end
-        if infiniteJumpEnabled then
-            toggleInfiniteJump(false)
-            toggleInfiniteJump(true)
+    -- Handle character respawn
+    LocalPlayer.CharacterAdded:Connect(reapplyGuiState)
+
+    -- Handle teleports
+    local lastPlaceId = game.PlaceId
+    local teleportConnection = TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
+        if player == LocalPlayer then
+            screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+            reapplyGuiState(LocalPlayer.Character)
         end
     end)
+    table.insert(connections, teleportConnection)
+
+    local placeConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if game.PlaceId ~= lastPlaceId then
+            lastPlaceId = game.PlaceId
+            screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+            reapplyGuiState(LocalPlayer.Character)
+        end
+    end)
+    table.insert(connections, placeConnection)
 end
 
--- Execute the Script
+-- Initialize the GUI
 initializeGui()
