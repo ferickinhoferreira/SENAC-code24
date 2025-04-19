@@ -536,7 +536,7 @@ local inputBeganConnection = UserInputService.InputBegan:Connect(function(input,
         sendNotification("Aim Mode", aimHead and "Head" or "Chest")
     end
 
-    if input.KeyCode == Enum.KeyCode.Delete then -- Encerrar o script
+    if input.KeyCode == Enum.KeyCode.PageDown then -- Encerrar o script
         terminateScript()
     end
 
