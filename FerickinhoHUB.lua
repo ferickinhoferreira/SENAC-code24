@@ -2188,7 +2188,11 @@ local function initializeGui()
             PlayerCharacter.Humanoid.JumpPower = value
         end
     end)
-    addButton("Pulo Infinito", function(state)
+    addButton("Aimbot", function()
+    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
+    	print("Aimbot: Executado")
+	end, false)
+	addButton("Pulo Infinito", function(state)
         toggleInfiniteJump(state)
     end, true)
     addButton("Voar", function(state)
