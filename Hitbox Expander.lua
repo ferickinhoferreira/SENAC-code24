@@ -28,11 +28,17 @@ local isMinimized = false
 -- Hitbox Variables
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
-getgenv().HitboxColor = "Really black"
+getgenv().HitboxColorRGB = {r = 0, g = 0, b = 0} -- Default black
+getgenv().HitboxHue = 0 -- For static hue or rainbow starting point
+getgenv().RainbowMode = false
+getgenv().RainbowSpeed = 1 -- Cycles per second
 getgenv().HitboxMaterial = "Neon"
 getgenv().HitboxStatus = false
 getgenv().NPCHitbox = false
 getgenv().TeamCheck = false
+local lastSettings = {size = 15, transparency = 0.9, r = 0, g = 0, b = 0, hue = 0, rainbow = false, speed = 1, material = "Neon"}
+local rainbowCoroutine = nil
+local forceUpdate = false -- Flag to force hitbox update on toggle change
 
 -- Theme Variables
 local themeColors = {
@@ -54,6 +60,10 @@ local function disconnectAll()
         end
     end
     connections = {}
+    if rainbowCoroutine then
+        coroutine.close(rainbowCoroutine)
+        rainbowCoroutine = nil
+    end
 end
 
 -- Function to Adjust GUI for Responsiveness
@@ -98,7 +108,6 @@ local function createFloatingButton()
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     stroke.Parent = floatingButton
 
-    -- Draggable Functionality
     local dragging = false
     local dragStartPos = nil
     local buttonStartPos = nil
@@ -128,7 +137,6 @@ local function createFloatingButton()
             local delta = currentPos - dragStartPos
             local newPos = buttonStartPos + delta
 
-            -- Clamp position to keep button within screen (10-pixel margin)
             newPos = Vector2.new(
                 math.clamp(newPos.X, 10, screenSize.X - 90),
                 math.clamp(newPos.Y, 10, screenSize.Y - 90)
@@ -264,7 +272,6 @@ local function createGui()
 
     createFloatingButton()
 
-    -- Search Functionality
     searchBar:GetPropertyChangedSignal("Text"):Connect(function()
         local searchText = searchBar.Text:lower()
         for _, child in ipairs(scrollingFrame:GetChildren()) do
@@ -278,7 +285,6 @@ local function createGui()
         end
     end)
 
-    -- Adjust GUI on screen size change
     local viewportConnection = Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(adjustGuiForDevice)
     table.insert(connections, viewportConnection)
 
@@ -352,11 +358,12 @@ local function addToggle(text, callback)
         local state = toggleIndicator.BackgroundColor3 == themeColors.ToggleOff
         toggleIndicator.BackgroundColor3 = state and themeColors.ToggleOn or themeColors.ToggleOff
         callback(state)
+        forceUpdate = true -- Force immediate update to reflect toggle change
     end)
 end
 
 -- Function to Add a Slider
-local function addSlider(name, default, min, max, callback)
+local function addSlider(name, default, min, max, callback, isInteger)
     local holder = Instance.new("Frame")
     holder.Size = UDim2.new(1, -10, 0, 50)
     holder.BackgroundTransparency = 1
@@ -441,7 +448,11 @@ local function addSlider(name, default, min, max, callback)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local relativeX = math.clamp((input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
             local value = min + (max - min) * relativeX
-            value = math.round(value * 100) / 100 -- Round to 2 decimal places
+            if isInteger then
+                value = math.floor(value + 0.5)
+            else
+                value = math.round(value * 100) / 100
+            end
             sliderBox.Text = tostring(value)
             label.Text = tostring(name) .. ": " .. tostring(value)
             knob.Position = UDim2.new(relativeX, -8, 0.5, -8)
@@ -454,7 +465,11 @@ local function addSlider(name, default, min, max, callback)
     local focusConnection = sliderBox.FocusLost:Connect(function()
         local value = tonumber(sliderBox.Text) or default
         value = math.clamp(value, min, max)
-        value = math.round(value * 100) / 100
+        if isInteger then
+            value = math.floor(value + 0.5)
+        else
+            value = math.round(value * 100) / 100
+        end
         sliderBox.Text = tostring(value)
         label.Text = tostring(name) .. ": " .. tostring(value)
         knob.Position = UDim2.new((value - min) / (max - min), -8, 0.5, -8)
@@ -464,97 +479,59 @@ local function addSlider(name, default, min, max, callback)
     table.insert(connections, focusConnection)
 end
 
--- Function to Add a Dropdown
-local function addDropdown(name, options, default, callback)
-    local holder = Instance.new("Frame")
-    holder.Size = UDim2.new(1, -10, 0, 50)
-    holder.BackgroundTransparency = 1
-    holder.ZIndex = 7
-    holder.Parent = scrollingFrame
-    holder.Visible = true
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0.4, 0)
-    label.Position = UDim2.new(0, 0, 0, 0)
-    label.Text = tostring(name) .. ": " .. tostring(default)
-    label.TextColor3 = themeColors.Accent
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 13
-    label.ZIndex = 7
-    label.Parent = holder
-
-    local dropdownButton = Instance.new("TextButton")
-    dropdownButton.Size = UDim2.new(1, 0, 0.4, 0)
-    dropdownButton.Position = UDim2.new(0, 0, 0.6, 0)
-    dropdownButton.BackgroundColor3 = themeColors.Button
-    dropdownButton.TextColor3 = themeColors.Text
-    dropdownButton.Text = default
-    dropdownButton.Font = Enum.Font.Gotham
-    dropdownButton.TextSize = 12
-    dropdownButton.ZIndex = 7
-    dropdownButton.Parent = holder
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = dropdownButton
-
-    local dropdownFrame = Instance.new("Frame")
-    dropdownFrame.Size = UDim2.new(1, 0, 0, #options * 30)
-    dropdownFrame.Position = UDim2.new(0, 0, 1, 5)
-    dropdownFrame.BackgroundColor3 = themeColors.Background
-    dropdownFrame.Visible = false
-    dropdownFrame.ZIndex = 8
-    dropdownFrame.Parent = dropdownButton
-
-    local dropdownCorner = Instance.new("UICorner")
-    dropdownCorner.CornerRadius = UDim.new(0, 6)
-    dropdownCorner.Parent = dropdownFrame
-
-    local dropdownList = Instance.new("UIListLayout")
-    dropdownList.Padding = UDim.new(0, 2)
-    dropdownList.SortOrder = Enum.SortOrder.LayoutOrder
-    dropdownList.Parent = dropdownFrame
-
-    local dropdownPadding = Instance.new("UIPadding")
-    dropdownPadding.PaddingTop = UDim.new(0, 2)
-    dropdownPadding.Parent = dropdownFrame
-
-    for i, option in ipairs(options) do
-        local optionButton = Instance.new("TextButton")
-        optionButton.Size = UDim2.new(1, 0, 0, 28)
-        optionButton.BackgroundColor3 = themeColors.Button
-        optionButton.TextColor3 = themeColors.Text
-        optionButton.Text = option
-        optionButton.Font = Enum.Font.Gotham
-        optionButton.TextSize = 12
-        optionButton.ZIndex = 9
-        optionButton.Parent = dropdownFrame
-
-        local optionCorner = Instance.new("UICorner")
-        optionCorner.CornerRadius = UDim.new(0, 4)
-        optionCorner.Parent = optionButton
-
-        optionButton.MouseButton1Click:Connect(function()
-            dropdownButton.Text = option
-            label.Text = tostring(name) .. ": " .. tostring(option)
-            dropdownFrame.Visible = false
-            callback(option)
-        end)
-    end
-
-    dropdownButton.MouseButton1Click:Connect(function()
-        dropdownFrame.Visible = not dropdownFrame.Visible
-    end)
-end
-
 -- Function to Terminate the Script
 local function terminateScript()
+    -- Deactivate all features
+    getgenv().HitboxStatus = false
+    getgenv().NPCHitbox = false
+    getgenv().RainbowMode = false
+
+    -- Reset all hitboxes
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            if character then
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    resetHitbox(hrp)
+                end
+            end
+        end
+    end
+
+    for _, model in ipairs(Workspace:GetDescendants()) do
+        if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                resetHitbox(hrp)
+            end
+        end
+    end
+
+    -- Clean up connections and coroutine
     disconnectAll()
+
+    -- Destroy GUI
     if screenGui then
         screenGui:Destroy()
         screenGui = nil
     end
+end
+
+-- Rainbow Color Cycle
+local function startRainbowCycle()
+    if rainbowCoroutine then
+        coroutine.close(rainbowCoroutine)
+    end
+    rainbowCoroutine = coroutine.create(function()
+        while getgenv().RainbowMode do
+            local hue = (tick() * getgenv().RainbowSpeed) % 1
+            local color = Color3.fromHSV(hue, 1, 1)
+            getgenv().HitboxColorRGB = {r = math.floor(color.r * 255), g = math.floor(color.g * 255), b = math.floor(color.b * 255)}
+            wait(0.01)
+        end
+    end)
+    coroutine.resume(rainbowCoroutine)
 end
 
 -- Hitbox Expander Logic
@@ -562,7 +539,8 @@ local function applyHitbox(part)
     pcall(function()
         part.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
         part.Transparency = getgenv().HitboxTransparency
-        part.BrickColor = BrickColor.new(getgenv().HitboxColor)
+        local color = getgenv().RainbowMode and Color3.fromRGB(getgenv().HitboxColorRGB.r, getgenv().HitboxColorRGB.g, getgenv().HitboxColorRGB.b) or Color3.fromHSV(getgenv().HitboxHue, 1, 1)
+        part.Color = color
         part.Material = Enum.Material[getgenv().HitboxMaterial]
         part.CanCollide = false
     end)
@@ -572,30 +550,134 @@ local function resetHitbox(part)
     pcall(function()
         part.Size = Vector3.new(2, 2, 1)
         part.Transparency = 1
-        part.BrickColor = BrickColor.new("Medium stone grey")
+        part.Color = Color3.fromRGB(128, 128, 128)
         part.Material = Enum.Material.Plastic
         part.CanCollide = false
     end)
 end
 
 local function updateHitboxes()
-    RunService.RenderStepped:Connect(function()
-        -- Players
-        if getgenv().HitboxStatus then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    if not getgenv().TeamCheck or (getgenv().TeamCheck and player.Team ~= LocalPlayer.Team) then
-                        local character = player.Character
-                        if character then
-                            local hrp = character:FindFirstChild("HumanoidRootPart")
-                            if hrp then
-                                applyHitbox(hrp)
+    local descendantConnection = Workspace.DescendantAdded:Connect(function(descendant)
+        if getgenv().NPCHitbox and descendant:IsA("Model") and descendant:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(descendant) then
+            local hrp = descendant:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                applyHitbox(hrp)
+            end
+        end
+    end)
+    table.insert(connections, descendantConnection)
+
+    coroutine.wrap(function()
+        while true do
+            if getgenv().HitboxStatus or getgenv().NPCHitbox then
+                local settingsChanged = forceUpdate or
+                                       getgenv().HitboxSize ~= lastSettings.size or
+                                       getgenv().HitboxTransparency ~= lastSettings.transparency or
+                                       getgenv().HitboxHue ~= lastSettings.hue or
+                                       getgenv().RainbowMode ~= lastSettings.rainbow or
+                                       getgenv().RainbowSpeed ~= lastSettings.speed or
+                                       getgenv().HitboxMaterial ~= lastSettings.material or
+                                       (getgenv().RainbowMode and (getgenv().HitboxColorRGB.r ~= lastSettings.r or
+                                                                   getgenv().HitboxColorRGB.g ~= lastSettings.g or
+                                                                   getgenv().HitboxColorRGB.b ~= lastSettings.b))
+
+                if settingsChanged then
+                    lastSettings.size = getgenv().HitboxSize
+                    lastSettings.transparency = getgenv().HitboxTransparency
+                    lastSettings.hue = getgenv().HitboxHue
+                    lastSettings.rainbow = getgenv().RainbowMode
+                    lastSettings.speed = getgenv().RainbowSpeed
+                    lastSettings.r = getgenv().HitboxColorRGB.r
+                    lastSettings.g = getgenv().HitboxColorRGB.g
+                    lastSettings.b = getgenv().HitboxColorRGB.b
+                    lastSettings.material = getgenv().HitboxMaterial
+                    forceUpdate = false
+                end
+
+                if getgenv().HitboxStatus then
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer then
+                            if not getgenv().TeamCheck or (getgenv().TeamCheck and player.Team ~= LocalPlayer.Team) then
+                                local character = player.Character
+                                if character then
+                                    local hrp = character:FindFirstChild("HumanoidRootPart")
+                                    if hrp and (settingsChanged or hrp.Size.X ~= getgenv().HitboxSize) then
+                                        applyHitbox(hrp)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                else
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer then
+                            local character = player.Character
+                            if character then
+                                local hrp = character:FindFirstChild("HumanoidRootPart")
+                                if hrp and hrp.Size.X ~= 2 then
+                                    resetHitbox(hrp)
+                                end
                             end
                         end
                     end
                 end
+
+                if getgenv().NPCHitbox then
+                    for _, model in ipairs(Workspace:GetDescendants()) do
+                        if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
+                            local hrp = model:FindFirstChild("HumanoidRootPart")
+                            if hrp and (settingsChanged or hrp.Size.X ~= getgenv().HitboxSize) then
+                                applyHitbox(hrp)
+                            end
+                        end
+                    end
+                else
+                    for _, model in ipairs(Workspace:GetDescendants()) do
+                        if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
+                            local hrp = model:FindFirstChild("HumanoidRootPart")
+                            if hrp and hrp.Size.X ~= 2 then
+                                resetHitbox(hrp)
+                            end
+                        end
+                    end
+                end
+            else
+                -- Ensure hitboxes are reset if both toggles are off
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        local character = player.Character
+                        if character then
+                            local hrp = character:FindFirstChild("HumanoidRootPart")
+                            if hrp and hrp.Size.X ~= 2 then
+                                resetHitbox(hrp)
+                            end
+                        end
+                    end
+                end
+                for _, model in ipairs(Workspace:GetDescendants()) do
+                    if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
+                        local hrp = model:FindFirstChild("HumanoidRootPart")
+                        if hrp and hrp.Size.X ~= 2 then
+                            resetHitbox(hrp)
+                        end
+                    end
+                end
             end
-        else
+            wait(0.1)
+        end
+    end)()
+end
+
+-- Main Function to Initialize the GUI
+local function initializeGui()
+    createGui()
+
+    -- Hitbox Expander Section
+    addSectionLabel("Hitbox Expander")
+
+    addToggle("Enable Player Hitbox", function(state)
+        getgenv().HitboxStatus = state
+        if not state then
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer then
                     local character = player.Character
@@ -608,18 +690,11 @@ local function updateHitboxes()
                 end
             end
         end
+    end)
 
-        -- NPCs
-        if getgenv().NPCHitbox then
-            for _, model in ipairs(Workspace:GetDescendants()) do
-                if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
-                    local hrp = model:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        applyHitbox(hrp)
-                    end
-                end
-            end
-        else
+    addToggle("Enable NPC Hitbox", function(state)
+        getgenv().NPCHitbox = state
+        if not state then
             for _, model in ipairs(Workspace:GetDescendants()) do
                 if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
                     local hrp = model:FindFirstChild("HumanoidRootPart")
@@ -630,42 +705,81 @@ local function updateHitboxes()
             end
         end
     end)
-end
-
--- Main Function to Initialize the GUI
-local function initializeGui()
-    createGui()
-
-    -- Hitbox Expander Section
-    addSectionLabel("Hitbox Expander")
-
-    addToggle("Enable Player Hitbox", function(state)
-        getgenv().HitboxStatus = state
-    end)
-
-    addToggle("Enable NPC Hitbox", function(state)
-        getgenv().NPCHitbox = state
-    end)
 
     addToggle("Team Check", function(state)
         getgenv().TeamCheck = state
+        forceUpdate = true -- Force update to apply team check changes
     end)
 
     addSlider("Hitbox Size", 15, 1, 30, function(value)
         getgenv().HitboxSize = value
-    end)
+    end, true)
 
     addSlider("Hitbox Transparency", 0.9, 0, 1, function(value)
         getgenv().HitboxTransparency = value
+    end, false)
+
+    addToggle("Rainbow Mode", function(state)
+        getgenv().RainbowMode = state
+        if state then
+            startRainbowCycle()
+        else
+            if rainbowCoroutine then
+                coroutine.close(rainbowCoroutine)
+                rainbowCoroutine = nil
+            end
+            local color = Color3.fromHSV(getgenv().HitboxHue, 1, 1)
+            getgenv().HitboxColorRGB = {r = math.floor(color.r * 255), g = math.floor(color.g * 255), b = math.floor(color.b * 255)}
+        end
+        forceUpdate = true -- Force update to apply color change
     end)
 
-    addDropdown("Hitbox Color", {"Really black", "Really red", "Really blue", "Lime green", "Institutional white"}, "Really black", function(value)
-        getgenv().HitboxColor = value
-    end)
+    addSlider("Rainbow Speed", 1, 0, 5, function(value)
+        getgenv().RainbowSpeed = value
+        if getgenv().RainbowMode then
+            startRainbowCycle()
+        end
+    end, false)
 
-    addDropdown("Hitbox Material", {"Neon", "Plastic", "Metal", "Glass"}, "Neon", function(value)
-        getgenv().HitboxMaterial = value
-    end)
+    addSlider("Color Hue", 0, 0, 1, function(value)
+        getgenv().HitboxHue = value
+        if not getgenv().RainbowMode then
+            local color = Color3.fromHSV(value, 1, 1)
+            getgenv().HitboxColorRGB = {r = math.floor(color.r * 255), g = math.floor(color.g * 255), b = math.floor(color.b * 255)}
+        end
+    end, false)
+
+    addSlider("Color R", 0, 0, 255, function(value)
+        if not getgenv().RainbowMode then
+            getgenv().HitboxColorRGB.r = value
+        end
+    end, true)
+
+    addSlider("Color G", 0, 0, 255, function(value)
+        if not getgenv().RainbowMode then
+            getgenv().HitboxColorRGB.g = value
+        end
+    end, true)
+
+    addSlider("Color B", 0, 0, 255, function(value)
+        if not getgenv().RainbowMode then
+            getgenv().HitboxColorRGB.b = value
+        end
+    end, true)
+
+    local materials = {"Neon", "Plastic", "Metal", "Glass", "Wood", "Slate", "Concrete", "Brick", "SmoothPlastic", "ForceField"}
+    addSlider("Material", 0, 0, #materials - 1, function(value)
+        local index = math.floor(value + 0.5)
+        getgenv().HitboxMaterial = materials[index + 1]
+        for _, child in ipairs(scrollingFrame:GetChildren()) do
+            if child:IsA("Frame") and child:FindFirstChild("TextLabel") then
+                local label = child:FindFirstChild("TextLabel")
+                if label.Text:find("Material") then
+                    label.Text = "Material: " .. getgenv().HitboxMaterial
+                end
+            end
+        end
+    end, true)
 
     -- Script Controls
     addSectionLabel("Script Controls")
