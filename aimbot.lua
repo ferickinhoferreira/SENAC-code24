@@ -13,7 +13,6 @@ local camera = Workspace.CurrentCamera
 -- State Variables
 local aiming = false
 local aimbotEnabled = true -- Aimbot para NPCs
-local aimbotEnabled = true -- Aimbot para NPCs
 local playerAimbotEnabled = false -- Aimbot para jogadores
 local showESP = false -- Highlight para NPCs
 local showPlayerESP = false -- Highlight para jogadores
@@ -374,10 +373,10 @@ local fovConnection
 
 local function updateFOV(deltaTime)
     if isIncreasingFOV then
-        FOV_RADIUS = math.clamp(FOV_RADIUS + FOV_ADJUST_SPEED * deltaTime, 50, 1000)
+        FOV_RADIUS = math.clamp(FOV_RADIUS + FOV_ADJUST_SPEED * deltaTime, 10, 1000)
         fovCircle.Radius = FOV_RADIUS
     elseif isDecreasingFOV then
-        FOV_RADIUS = math.clamp(FOV_RADIUS - FOV_ADJUST_SPEED * deltaTime, 50, 1000)
+        FOV_RADIUS = math.clamp(FOV_RADIUS - FOV_ADJUST_SPEED * deltaTime, 10, 1000)
         fovCircle.Radius = FOV_RADIUS
     end
 end
@@ -393,7 +392,6 @@ local renderSteppedConnection = RunService.RenderStepped:Connect(function()
     local mousePos = UserInputService:GetMouseLocation()
     fovCircle.Position = mousePos
     fovCircle.Radius = FOV_RADIUS
-    fovCircle.Visible = aimbotEnabled or playerAimbotEnabled
 
     -- Aimbot para NPCs
     if aiming and aimbotEnabled then
@@ -484,7 +482,6 @@ local inputBeganConnection = UserInputService.InputBegan:Connect(function(input,
         if not fovConnection then
             fovConnection = RunService.Heartbeat:Connect(updateFOV)
         end
-        sendNotification("FOV Radius", "Increasing")
     end
 
     if input.KeyCode == Enum.KeyCode.Comma then
@@ -492,7 +489,6 @@ local inputBeganConnection = UserInputService.InputBegan:Connect(function(input,
         if not fovConnection then
             fovConnection = RunService.Heartbeat:Connect(updateFOV)
         end
-        sendNotification("FOV Radius", "Decreasing")
     end
 
     if input.KeyCode == Enum.KeyCode.K then -- Highlight para NPCs e ciclo de distância
@@ -545,8 +541,8 @@ local inputBeganConnection = UserInputService.InputBegan:Connect(function(input,
     end
 
     if input.KeyCode == Enum.KeyCode.End then -- Alternar visibilidade do círculo FOV
-        fovCircle.Transparency = fovCircle.Transparency == 0.5 and 1 or 0.5
-        sendNotification("FOV Circle", fovCircle.Transparency == 0.5 and "Visible" or "Invisible")
+        fovCircle.Visible = not fovCircle.Visible
+        sendNotification("FOV Circle", fovCircle.Visible and "Visible" or "Invisible")
     end
 
     if input.UserInputType == Enum.UserInputType.MouseButton2 then -- Botão direito do mouse
@@ -570,7 +566,6 @@ local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
         if not isIncreasingFOV and not isDecreasingFOV and fovConnection then
             fovConnection:Disconnect()
             fovConnection = nil
-            sendNotification("FOV Radius", "Set to " .. math.floor(FOV_RADIUS))
         end
     end
 
@@ -579,7 +574,6 @@ local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
         if not isIncreasingFOV and not isDecreasingFOV and fovConnection then
             fovConnection:Disconnect()
             fovConnection = nil
-            sendNotification("FOV Radius", "Set to " .. math.floor(FOV_RADIUS))
         end
     end
 end)
