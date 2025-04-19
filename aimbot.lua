@@ -430,24 +430,38 @@ scanWorkspaceForNPCs()
 
 -- Função para encerrar o script
 local function terminateScript()
-    -- Desconectar eventos
+    -- Desconectar todos os eventos
     if renderSteppedConnection then
         renderSteppedConnection:Disconnect()
+        renderSteppedConnection = nil
     end
     if characterConnection then
         characterConnection:Disconnect()
+        characterConnection = nil
     end
     if descendantAddedConnection then
         descendantAddedConnection:Disconnect()
+        descendantAddedConnection = nil
     end
     if descendantRemovingConnection then
         descendantRemovingConnection:Disconnect()
+        descendantRemovingConnection = nil
     end
     if playerAddedConnection then
         playerAddedConnection:Disconnect()
+        playerAddedConnection = nil
     end
     if fovConnection then
         fovConnection:Disconnect()
+        fovConnection = nil
+    end
+    if inputBeganConnection then
+        inputBeganConnection:Disconnect()
+        inputBeganConnection = nil
+    end
+    if inputEndedConnection then
+        inputEndedConnection:Disconnect()
+        inputEndedConnection = nil
     end
 
     -- Limpar highlights
@@ -457,10 +471,38 @@ local function terminateScript()
     -- Remover círculo FOV
     if fovCircle then
         fovCircle:Remove()
+        fovCircle = nil
     end
 
-    -- Notificar término
-    sendNotification("Script Terminated", "All functionalities have been stopped.")
+    -- Resetar estados
+    aiming = false
+    aimbotEnabled = false
+    playerAimbotEnabled = false
+    showESP = false
+    showPlayerESP = false
+    useFForAimbot = false
+    useLeftMouseForAimbot = false
+    isIncreasingFOV = false
+    isDecreasingFOV = false
+
+    -- Limpar caches
+    npcTargets = {}
+    activeNPCTargets = {}
+    activePlayerTargets = {}
+
+    -- Limpar todas as notificações ativas
+    pcall(function()
+        StarterGui:SetCore("ResetNotifications")
+    end)
+
+    -- Notificar término (notificação final com duração mínima)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Script Terminated",
+            Text = "All functionalities have been stopped.",
+            Duration = 0.1 -- Duração mínima para garantir que não persista
+        })
+    end)
 end
 
 -- Teclas de controle
