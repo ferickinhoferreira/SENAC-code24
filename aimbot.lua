@@ -13,6 +13,7 @@ local camera = Workspace.CurrentCamera
 -- State Variables
 local aiming = false
 local aimbotEnabled = true -- Aimbot para NPCs
+local aimbotEnabled = true -- Aimbot para NPCs
 local playerAimbotEnabled = false -- Aimbot para jogadores
 local showESP = false -- Highlight para NPCs
 local showPlayerESP = false -- Highlight para jogadores
@@ -57,7 +58,7 @@ local function sendNotification(title, text)
 end
 
 -- Atualiza personagem quando o jogador respawnar
-localPlayer.CharacterAdded:Connect(function(char)
+local characterConnection = localPlayer.CharacterAdded:Connect(function(char)
     character = char
 end)
 
@@ -133,7 +134,7 @@ local function scanWorkspaceForNPCs()
 end
 
 -- Atualiza o cache quando NPCs são adicionados
-Workspace.DescendantAdded:Connect(function(descendant)
+local descendantAddedConnection = Workspace.DescendantAdded:Connect(function(descendant)
     if showESP and isValidNPCModel(descendant) and not isPlayerModel(descendant) then
         local head = findHeadPart(descendant)
         local chest = findChestPart(descendant)
@@ -145,7 +146,7 @@ Workspace.DescendantAdded:Connect(function(descendant)
 end)
 
 -- Atualiza o cache quando NPCs são removidos
-Workspace.DescendantRemoving:Connect(function(descendant)
+local descendantRemovingConnection = Workspace.DescendantRemoving:Connect(function(descendant)
     if npcTargets[descendant] then
         npcTargets[descendant] = nil
         if showESP then
@@ -365,8 +366,24 @@ local function updatePlayerESP()
     activePlayerTargets = newActiveTargets
 end
 
+-- Controle de ajuste contínuo do FOV
+local isIncreasingFOV = false
+local isDecreasingFOV = false
+local FOV_ADJUST_SPEED = 100 -- Unidades por segundo
+local fovConnection
+
+local function updateFOV(deltaTime)
+    if isIncreasingFOV then
+        FOV_RADIUS = math.clamp(FOV_RADIUS + FOV_ADJUST_SPEED * deltaTime, 50, 1000)
+        fovCircle.Radius = FOV_RADIUS
+    elseif isDecreasingFOV then
+        FOV_RADIUS = math.clamp(FOV_RADIUS - FOV_ADJUST_SPEED * deltaTime, 50, 1000)
+        fovCircle.Radius = FOV_RADIUS
+    end
+end
+
 -- Loop principal
-RunService.RenderStepped:Connect(function()
+local renderSteppedConnection = RunService.RenderStepped:Connect(function()
     local currentTime = tick()
     if currentTime - lastNPCScan >= SCAN_INTERVAL then
         scanWorkspaceForNPCs()
@@ -400,7 +417,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- Monitorar novos jogadores
-Players.PlayerAdded:Connect(function(player)
+local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
     if player ~= localPlayer then
         player.CharacterAdded:Connect(function(char)
             if showPlayerESP then
@@ -413,8 +430,43 @@ end)
 -- Inicializa o escaneamento de NPCs
 scanWorkspaceForNPCs()
 
+-- Função para encerrar o script
+local function terminateScript()
+    -- Desconectar eventos
+    if renderSteppedConnection then
+        renderSteppedConnection:Disconnect()
+    end
+    if characterConnection then
+        characterConnection:Disconnect()
+    end
+    if descendantAddedConnection then
+        descendantAddedConnection:Disconnect()
+    end
+    if descendantRemovingConnection then
+        descendantRemovingConnection:Disconnect()
+    end
+    if playerAddedConnection then
+        playerAddedConnection:Disconnect()
+    end
+    if fovConnection then
+        fovConnection:Disconnect()
+    end
+
+    -- Limpar highlights
+    clearNPCHighlights()
+    clearPlayerHighlights()
+
+    -- Remover círculo FOV
+    if fovCircle then
+        fovCircle:Remove()
+    end
+
+    -- Notificar término
+    sendNotification("Script Terminated", "All functionalities have been stopped.")
+end
+
 -- Teclas de controle
-UserInputService.InputBegan:Connect(function(input, processed)
+local inputBeganConnection = UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
 
     if input.KeyCode == Enum.KeyCode.J then
@@ -428,13 +480,19 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 
     if input.KeyCode == Enum.KeyCode.Period then
-        FOV_RADIUS = math.clamp(FOV_RADIUS + 25, 50, 1000)
-        sendNotification("FOV Radius", "Increased to " .. FOV_RADIUS)
+        isIncreasingFOV = true
+        if not fovConnection then
+            fovConnection = RunService.Heartbeat:Connect(updateFOV)
+        end
+        sendNotification("FOV Radius", "Increasing")
     end
 
     if input.KeyCode == Enum.KeyCode.Comma then
-        FOV_RADIUS = math.clamp(FOV_RADIUS - 25, 50, 1000)
-        sendNotification("FOV Radius", "Decreased to " .. FOV_RADIUS)
+        isDecreasingFOV = true
+        if not fovConnection then
+            fovConnection = RunService.Heartbeat:Connect(updateFOV)
+        end
+        sendNotification("FOV Radius", "Decreasing")
     end
 
     if input.KeyCode == Enum.KeyCode.K then -- Highlight para NPCs e ciclo de distância
@@ -463,9 +521,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
         end
     end
 
-    if input.KeyCode == Enum.KeyCode.F7 then -- Ativar/desativar tecla F para aimbot
+    if input.KeyCode == Enum.KeyCode.F5 then -- Ativar/desativar tecla F para aimbot
         useFForAimbot = not useFForAimbot
-        sendNotification("F Key Aimbot", useFForAimbot and "Enabled" or "Disabled")
+        sendNotification("F Key Aimbot Toggle", useFForAimbot and "Enabled" or "Disabled")
     end
 
     if input.KeyCode == Enum.KeyCode.F8 then -- Ativar/desativar botão esquerdo do mouse para aimbot
@@ -482,6 +540,15 @@ UserInputService.InputBegan:Connect(function(input, processed)
         sendNotification("Aim Mode", aimHead and "Head" or "Chest")
     end
 
+    if input.KeyCode == Enum.KeyCode.Delete then -- Encerrar o script
+        terminateScript()
+    end
+
+    if input.KeyCode == Enum.KeyCode.End then -- Alternar visibilidade do círculo FOV
+        fovCircle.Transparency = fovCircle.Transparency == 0.5 and 1 or 0.5
+        sendNotification("FOV Circle", fovCircle.Transparency == 0.5 and "Visible" or "Invisible")
+    end
+
     if input.UserInputType == Enum.UserInputType.MouseButton2 then -- Botão direito do mouse
         aiming = true
     end
@@ -491,10 +558,28 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
+local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 or 
        (input.UserInputType == Enum.UserInputType.MouseButton1 and useLeftMouseForAimbot) or 
        (input.KeyCode == Enum.KeyCode.F and useFForAimbot) then
         aiming = false
+    end
+
+    if input.KeyCode == Enum.KeyCode.Period then
+        isIncreasingFOV = false
+        if not isIncreasingFOV and not isDecreasingFOV and fovConnection then
+            fovConnection:Disconnect()
+            fovConnection = nil
+            sendNotification("FOV Radius", "Set to " .. math.floor(FOV_RADIUS))
+        end
+    end
+
+    if input.KeyCode == Enum.KeyCode.Comma then
+        isDecreasingFOV = false
+        if not isIncreasingFOV and not isDecreasingFOV and fovConnection then
+            fovConnection:Disconnect()
+            fovConnection = nil
+            sendNotification("FOV Radius", "Set to " .. math.floor(FOV_RADIUS))
+        end
     end
 end)
