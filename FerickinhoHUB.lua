@@ -2188,7 +2188,11 @@ local function initializeGui()
             PlayerCharacter.Humanoid.JumpPower = value
         end
     end)
-    addButton("Aimbot", function()
+    addButton("Animações de Movimento", function()
+    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/anima%C3%A7%C3%B5es%20de%20movimento.lua"))()
+    	print("Animações de Movimento: Executado")
+	end, false)
+	addButton("Aimbot", function()
     	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
     	print("Aimbot: Executado")
 	end, false)
