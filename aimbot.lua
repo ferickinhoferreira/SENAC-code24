@@ -463,17 +463,17 @@ UserInputService.InputBegan:Connect(function(input, processed)
         end
     end
 
-    if input.KeyCode == Enum.KeyCode.F7 then -- Ativar/desativar botão esquerdo do mouse para aimbot
-        useLeftMouseForAimbot = not useLeftMouseForAimbot
-        sendNotification("Mouse Aimbot", useLeftMouseForAimbot and "Enabled" or "Disabled")
-    end
-
-    if input.KeyCode == Enum.KeyCode.F12 then -- Ativar/desativar tecla F para aimbot
+    if input.KeyCode == Enum.KeyCode.F7 then -- Ativar/desativar tecla F para aimbot
         useFForAimbot = not useFForAimbot
         sendNotification("F Key Aimbot", useFForAimbot and "Enabled" or "Disabled")
     end
 
-    if input.KeyCode == Enum.KeyCode.F and useFForAimbot then -- Tecla F para ativar aimbot (se ativada)
+    if input.KeyCode == Enum.KeyCode.F8 then -- Ativar/desativar botão esquerdo do mouse para aimbot
+        useLeftMouseForAimbot = not useLeftMouseForAimbot
+        sendNotification("Mouse Aimbot", useLeftMouseForAimbot and "Enabled" or "Disabled")
+    end
+
+    if input.KeyCode == Enum.KeyCode.F and useFForAimbot then -- Tecla F para ativar aimbot
         aiming = true
     end
 
@@ -486,7 +486,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
         aiming = true
     end
 
-    if input.UserInputType == Enum.UserInputType.MouseButton1 and useLeftMouseForAimbot then -- Botão esquerdo do mouse (se ativado)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and useLeftMouseForAimbot then -- Botão esquerdo do mouse
         aiming = true
     end
 end)
