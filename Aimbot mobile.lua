@@ -57,8 +57,7 @@ local function sanitizeString(str)
     if type(str) ~= "string" then
         return tostring(str)
     end
-    -- Replace problematic characters (like quotes) and ensure no unclosed strings
-    return str:gsub("[\"']", ""):gsub("\n", " "):sub(1, 100) -- Limit length to avoid overflow
+    return str:gsub("[\"']", ""):gsub("\n", " "):sub(1, 100)
 end
 
 -- Function to create a draggable floating button with red stroke
@@ -473,10 +472,23 @@ end)
 
 -- Touch-based aimbot control
 local touchConnection
+local touchMovedConnection
 local lastTouchPos = nil
+
+-- Get screen center as fallback
+local function getScreenCenter()
+    local viewportSize = camera.ViewportSize
+    return Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+end
+
 touchConnection = UserInputService.TouchStarted:Connect(function(touch, processed)
     if processed or not useTouchAimbot then return end
     aiming = true
+    lastTouchPos = touch.Position
+end)
+
+touchMovedConnection = UserInputService.TouchMoved:Connect(function(touch, processed)
+    if processed or not useTouchAimbot then return end
     lastTouchPos = touch.Position
 end)
 
@@ -495,22 +507,22 @@ local renderSteppedConnection = RunService.RenderStepped:Connect(function()
     end
 
     -- Update FOV circle position
-    local centerPos = lastTouchPos or UserInputService:GetMouseLocation() -- Fallback to mouse for compatibility
+    local centerPos = lastTouchPos or getScreenCenter() -- Use touch position or screen center
     fovCircle.Position = centerPos
     fovCircle.Radius = FOV_RADIUS
     fovCircle.Visible = fovVisible
 
     -- Aimbot for NPCs
-    if aiming and aimbotEnabled and lastTouchPos then
-        local target = getClosestNPCInFOV(lastTouchPos)
+    if aiming and aimbotEnabled then
+        local target = getClosestNPCInFOV(centerPos)
         if target then
             camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
         end
     end
 
     -- Aimbot for players
-    if aiming and playerAimbotEnabled and lastTouchPos then
-        local target = getClosestPlayerInFOV(lastTouchPos)
+    if aiming and playerAimbotEnabled then
+        local target = getClosestPlayerInFOV(centerPos)
         if target then
             camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
         end
@@ -555,6 +567,9 @@ function terminateScript()
     end
     if touchConnection then
         touchConnection:Disconnect()
+    end
+    if touchMovedConnection then
+        touchMovedConnection:Disconnect()
     end
 
     -- Clear highlights
