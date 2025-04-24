@@ -2,7 +2,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 -- Player Variables
@@ -12,6 +11,7 @@ local camera = Workspace.CurrentCamera
 
 -- State Variables
 local autoAimbotEnabled = true -- Auto-aim toggle
+local aimbotNPCsEnabled = true -- Aimbot for NPCs
 local aimbotPlayersEnabled = false -- Aimbot for players
 local showESP = false -- Highlight for NPCs
 local aimHead = true -- Toggle between head (true) and chest (false)
@@ -30,27 +30,6 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "MobileAimbotGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-
--- Function to sanitize strings
-local function sanitizeString(str)
-    if type(str) ~= "string" then
-        return tostring(str)
-    end
-    return str:gsub("[\"']", ""):gsub("\n", " "):sub(1, 100)
-end
-
--- Function to send notifications with sanitized strings
-local function sendNotification(title, text)
-    pcall(function()
-        local sanitizedTitle = sanitizeString(title)
-        local sanitizedText = sanitizeString(text)
-        StarterGui:SetCore("SendNotification", {
-            Title = sanitizedTitle,
-            Text = sanitizedText,
-            Duration = 2
-        })
-    end)
-end
 
 -- Function to create a small draggable floating button with red stroke
 local function createButton(name, text, position, size, isRound, callback)
@@ -162,11 +141,13 @@ end
 local function getTargetsInRange()
     local targetsInRange = {}
     for _, model in ipairs(Workspace:GetDescendants()) do
-        if (isValidNPCModel(model) or (aimbotPlayersEnabled and isValidPlayerModel(model))) and isWithinRange(model) then
-            local part = findAimPart(model)
-            if part then
-                local distance = (part.Position - character.HumanoidRootPart.Position).Magnitude
-                table.insert(targetsInRange, {Part = part, Distance = distance, Model = model})
+        if (aimbotNPCsEnabled and isValidNPCModel(model)) or (aimbotPlayersEnabled and isValidPlayerModel(model)) then
+            if isWithinRange(model) then
+                local part = findAimPart(model)
+                if part then
+                    local distance = (part.Position - character.HumanoidRootPart.Position).Magnitude
+                    table.insert(targetsInRange, {Part = part, Distance = distance, Model = model})
+                end
             end
         end
     end
@@ -176,17 +157,16 @@ end
 
 -- Cycle to the next target
 local function cycleNextTarget()
-    targetList = getTargetsInRange()
+    targetList = getTargetsInRange() -- Refresh the target list
     if #targetList == 0 then
         currentTarget = nil
         currentTargetIndex = 0
-        sendNotification("Aimbot", "Nenhum alvo no alcance")
         return
     end
 
+    -- Increment index and wrap around if needed
     currentTargetIndex = (currentTargetIndex % #targetList) + 1
     currentTarget = targetList[currentTargetIndex].Part
-    sendNotification("Aimbot", "Mirando " .. (isPlayerModel(targetList[currentTargetIndex].Model) and "jogador" or "NPC") .. " a " .. math.floor(targetList[currentTargetIndex].Distance) .. " studs")
 end
 
 -- Check if target is dead
@@ -320,37 +300,40 @@ createButton("ToggleAutoAimbot", "🔒 Prender Mira", UDim2.new(1, -110, 0, 5), 
         currentTarget = nil
         currentTargetIndex = 0
     end
-    sendNotification("Aimbot", autoAimbotEnabled and "Mira ativada" or "Mira desativada")
 end)
 
-createButton("NextTarget", "🎯 Próximo Alvo", UDim2.new(1, -55, 0, 5), buttonSize, false, function()
+createButton("NextTarget", "🔄 Próximo Alvo", UDim2.new(1, -55, 0, 5), buttonSize, false, function()
     cycleNextTarget()
 end)
 
-createButton("TogglePlayerAimbot", "👥 Aimbot Jogadores", UDim2.new(1, -110, 0, 35), buttonSize, false, function()
+createButton("ToggleNPCAimbot", "👾 Aimbot NPCs", UDim2.new(1, -110, 0, 35), buttonSize, false, function()
+    aimbotNPCsEnabled = not aimbotNPCsEnabled
+    currentTarget = nil
+    currentTargetIndex = 0
+end)
+
+createButton("TogglePlayerAimbot", "👥 Aimbot Jogadores", UDim2.new(1, -55, 0, 35), buttonSize, false, function()
     aimbotPlayersEnabled = not aimbotPlayersEnabled
     currentTarget = nil
     currentTargetIndex = 0
-    sendNotification("Aimbot Jogadores", aimbotPlayersEnabled and "Ativado" or "Desativado")
 end)
 
-createButton("ToggleAimMode", "🎯 Alvo: Cabeça", UDim2.new(1, -55, 0, 35), buttonSize, false, function()
+local aimModeButton = createButton("ToggleAimMode", "🎯 Alvo: Cabeça", UDim2.new(1, -110, 0, 65), buttonSize, false, function()
     aimHead = not aimHead
     currentTarget = nil
     currentTargetIndex = 0
-    sendNotification("Modo de Mira", aimHead and "Cabeça" or "Peito")
+    aimModeButton.Text = aimHead and "🎯 Alvo: Cabeça" or "🎯 Alvo: Peito"
 end)
 
-createButton("ToggleESP", "👀 ESP NPCs", UDim2.new(1, -110, 0, 65), buttonSize, false, function()
+createButton("ToggleESP", "👀 ESP NPCs", UDim2.new(1, -55, 0, 65), buttonSize, false, function()
     showESP = not showESP
     if not showESP then
         clearNPCHighlights()
         clearPlayerHighlights()
     end
-    sendNotification("ESP", showESP and "Ativado" or "Desativado")
 end)
 
-createButton("TerminateScript", "🛑 Parar", UDim2.new(1, -55, 0, 65), buttonSize, false, function()
+createButton("TerminateScript", "🛑 Parar", UDim2.new(1, -110, 0, 95), buttonSize, false, function()
     terminateScript()
 end)
 
@@ -374,7 +357,7 @@ end)
 
 -- Main loop
 local lastShotTime = 0
-local SHOT_INTERVAL = 0.1 -- Time between shots when holding (adjust as needed)
+local SHOT_INTERVAL = 0.1 -- Time between shots when holding
 local renderSteppedConnection = RunService.RenderStepped:Connect(function()
     -- Handle continuous shooting
     if isShooting then
@@ -404,7 +387,6 @@ local renderSteppedConnection = RunService.RenderStepped:Connect(function()
             if #targetList > 0 then
                 currentTargetIndex = 1
                 currentTarget = targetList[currentTargetIndex].Part
-                sendNotification("Aimbot", "Mirando " .. (isPlayerModel(targetList[currentTargetIndex].Model) and "jogador" or "NPC") .. " a " .. math.floor(targetList[currentTargetIndex].Distance) .. " studs")
             else
                 currentTarget = nil
                 currentTargetIndex = 0
@@ -450,7 +432,4 @@ function terminateScript()
     if screenGui then
         screenGui:Destroy()
     end
-
-    -- Notify termination
-    sendNotification("Script Terminado", "Todas as funções paradas.")
 end
