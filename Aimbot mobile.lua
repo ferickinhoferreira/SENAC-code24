@@ -14,6 +14,7 @@ local autoAimbotEnabled = true -- Auto-aim toggle
 local aimbotNPCsEnabled = true -- Aimbot for NPCs
 local aimbotPlayersEnabled = false -- Aimbot for players
 local showESP = false -- Highlight for NPCs
+local showPlayerESP = false -- Highlight for players
 local aimHead = true -- Toggle between head (true) and chest (false)
 local maxDistance = 150 -- Maximum distance to lock onto targets
 local currentTarget = nil -- Currently locked target
@@ -222,7 +223,6 @@ local UPDATE_INTERVAL = 0.1
 local function updateNPCESP()
     if not showESP then
         clearNPCHighlights()
-        clearPlayerHighlights()
         return
     end
     local currentTime = tick()
@@ -231,7 +231,6 @@ local function updateNPCESP()
     end
     lastESPUpdate = currentTime
 
-    -- Update NPC ESP
     local npcTargets = {}
     for _, model in ipairs(Workspace:GetDescendants()) do
         if isValidNPCModel(model) and isWithinRange(model) then
@@ -256,8 +255,20 @@ local function updateNPCESP()
         end
     end
     activeNPCTargets = npcTargets
+end
 
-    -- Update Player ESP
+-- Update Player ESP
+local function updatePlayerESP()
+    if not showPlayerESP then
+        clearPlayerHighlights()
+        return
+    end
+    local currentTime = tick()
+    if currentTime - lastESPUpdate < UPDATE_INTERVAL then
+        return
+    end
+    lastESPUpdate = currentTime
+
     local playerTargets = {}
     for _, model in ipairs(Workspace:GetDescendants()) do
         if isValidPlayerModel(model) and isWithinRange(model) then
@@ -325,15 +336,21 @@ local aimModeButton = createButton("ToggleAimMode", "🎯 Alvo: Cabeça", UDim2.
     aimModeButton.Text = aimHead and "🎯 Alvo: Cabeça" or "🎯 Alvo: Peito"
 end)
 
-createButton("ToggleESP", "👀 ESP NPCs", UDim2.new(1, -55, 0, 65), buttonSize, false, function()
+createButton("ToggleNPCESP", "👀 ESP NPCs", UDim2.new(1, -55, 0, 65), buttonSize, false, function()
     showESP = not showESP
     if not showESP then
         clearNPCHighlights()
+    end
+end)
+
+createButton("TogglePlayerESP", "👀 ESP Jogadores", UDim2.new(1, -110, 0, 95), buttonSize, false, function()
+    showPlayerESP = not showPlayerESP
+    if not showPlayerESP then
         clearPlayerHighlights()
     end
 end)
 
-createButton("TerminateScript", "🛑 Parar", UDim2.new(1, -110, 0, 95), buttonSize, false, function()
+createButton("TerminateScript", "🛑 Parar", UDim2.new(1, -55, 0, 95), buttonSize, false, function()
     terminateScript()
 end)
 
@@ -370,6 +387,7 @@ local renderSteppedConnection = RunService.RenderStepped:Connect(function()
 
     -- Update ESP
     updateNPCESP()
+    updatePlayerESP()
 
     -- Auto-aimbot logic
     if autoAimbotEnabled then
@@ -404,8 +422,9 @@ end)
 local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
     if player ~= localPlayer then
         player.CharacterAdded:Connect(function(char)
-            if showESP then
+            if showESP or showPlayerESP then
                 updateNPCESP()
+                updatePlayerESP()
             end
         end)
     end
