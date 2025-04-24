@@ -107,14 +107,18 @@ local function isValidPlayerModel(model)
     return true
 end
 
--- Find a part to aim at (head or chest)
+-- Find a part to aim at (head or chest) with position adjustment
 local function findAimPart(model)
     if aimHead then
         local possibleHeadNames = {"Head", "head", "HEAD"}
         for _, name in ipairs(possibleHeadNames) do
             local part = model:FindFirstChild(name)
             if part and part:IsA("BasePart") then
-                return part
+                -- Offset the aim position slightly below the head's center
+                local headPosition = part.Position
+                local headCFrame = part.CFrame
+                local offset = headCFrame:VectorToWorldSpace(Vector3.new(0, -0.5, 0)) -- 0.5 studs down
+                return {Part = part, Position = headPosition + offset}
             end
         end
     end
@@ -122,17 +126,21 @@ local function findAimPart(model)
     for _, name in ipairs(possibleChestNames) do
         local part = model:FindFirstChild(name)
         if part and part:IsA("BasePart") then
-            return part
+            return {Part = part, Position = part.Position}
         end
     end
-    return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+    local fallbackPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+    if fallbackPart then
+        return {Part = fallbackPart, Position = fallbackPart.Position}
+    end
+    return nil
 end
 
 -- Check if model is within range
 local function isWithinRange(model)
-    local part = findAimPart(model)
-    if part and character.HumanoidRootPart then
-        local distance = (part.Position - character.HumanoidRootPart.Position).Magnitude
+    local aimData = findAimPart(model)
+    if aimData and aimData.Part and character.HumanoidRootPart then
+        local distance = (aimData.Position - character.HumanoidRootPart.Position).Magnitude
         return distance <= maxDistance
     end
     return false
@@ -144,10 +152,10 @@ local function getTargetsInRange()
     for _, model in ipairs(Workspace:GetDescendants()) do
         if (aimbotNPCsEnabled and isValidNPCModel(model)) or (aimbotPlayersEnabled and isValidPlayerModel(model)) then
             if isWithinRange(model) then
-                local part = findAimPart(model)
-                if part then
-                    local distance = (part.Position - character.HumanoidRootPart.Position).Magnitude
-                    table.insert(targetsInRange, {Part = part, Distance = distance, Model = model})
+                local aimData = findAimPart(model)
+                if aimData and aimData.Part then
+                    local distance = (aimData.Position - character.HumanoidRootPart.Position).Magnitude
+                    table.insert(targetsInRange, {Part = aimData.Part, Position = aimData.Position, Distance = distance, Model = model})
                 end
             end
         end
@@ -167,7 +175,7 @@ local function cycleNextTarget()
 
     -- Increment index and wrap around if needed
     currentTargetIndex = (currentTargetIndex % #targetList) + 1
-    currentTarget = targetList[currentTargetIndex].Part
+    currentTarget = targetList[currentTargetIndex]
 end
 
 -- Check if target is dead
@@ -234,8 +242,8 @@ local function updateNPCESP()
     local npcTargets = {}
     for _, model in ipairs(Workspace:GetDescendants()) do
         if isValidNPCModel(model) and isWithinRange(model) then
-            local part = findAimPart(model)
-            if part then
+            local aimData = findAimPart(model)
+            if aimData and aimData.Part then
                 npcTargets[model] = true
                 local highlight = espHighlights[model]
                 if not highlight then
@@ -272,8 +280,8 @@ local function updatePlayerESP()
     local playerTargets = {}
     for _, model in ipairs(Workspace:GetDescendants()) do
         if isValidPlayerModel(model) and isWithinRange(model) then
-            local part = findAimPart(model)
-            if part then
+            local aimData = findAimPart(model)
+            if aimData and aimData.Part then
                 playerTargets[model] = true
                 local highlight = playerHighlights[model]
                 if not highlight then
@@ -305,7 +313,7 @@ end
 
 -- Create GUI buttons in upper-right corner
 local buttonSize = UDim2.new(0, 50, 0, 25)
-createButton("ToggleAutoAimbot", "🔒 Prender Mira", UDim2.new(1, -110, 0, 5), buttonSize, false, function()
+createButton("ToggleAutoAimbot", "🔒 Mira Auto", UDim2.new(1, -110, 0, 5), buttonSize, false, function()
     autoAimbotEnabled = not autoAimbotEnabled
     if not autoAimbotEnabled then
         currentTarget = nil
@@ -313,49 +321,49 @@ createButton("ToggleAutoAimbot", "🔒 Prender Mira", UDim2.new(1, -110, 0, 5), 
     end
 end)
 
-createButton("NextTarget", "🔄 Próximo Alvo", UDim2.new(1, -55, 0, 5), buttonSize, false, function()
+createButton("NextTarget", "🔄 Trocar Alvo", UDim2.new(1, -55, 0, 5), buttonSize, false, function()
     cycleNextTarget()
 end)
 
-createButton("ToggleNPCAimbot", "👾 Aimbot NPCs", UDim2.new(1, -110, 0, 35), buttonSize, false, function()
+createButton("ToggleNPCAimbot", "👾 Mira NPCs", UDim2.new(1, -110, 0, 35), buttonSize, false, function()
     aimbotNPCsEnabled = not aimbotNPCsEnabled
     currentTarget = nil
     currentTargetIndex = 0
 end)
 
-createButton("TogglePlayerAimbot", "👥 Aimbot Jogadores", UDim2.new(1, -55, 0, 35), buttonSize, false, function()
+createButton("TogglePlayerAimbot", "👥 Mira Jogadores", UDim2.new(1, -55, 0, 35), buttonSize, false, function()
     aimbotPlayersEnabled = not aimbotPlayersEnabled
     currentTarget = nil
     currentTargetIndex = 0
 end)
 
-local aimModeButton = createButton("ToggleAimMode", "🎯 Alvo: Cabeça", UDim2.new(1, -110, 0, 65), buttonSize, false, function()
+local aimModeButton = createButton("ToggleAimMode", "🎯 Mirar Cabeça", UDim2.new(1, -110, 0, 65), buttonSize, false, function()
     aimHead = not aimHead
     currentTarget = nil
     currentTargetIndex = 0
-    aimModeButton.Text = aimHead and "🎯 Alvo: Cabeça" or "🎯 Alvo: Peito"
+    aimModeButton.Text = aimHead and "🎯 Mirar Cabeça" or "🎯 Mirar Peito"
 end)
 
-createButton("ToggleNPCESP", "👀 ESP NPCs", UDim2.new(1, -55, 0, 65), buttonSize, false, function()
+createButton("ToggleNPCESP", "👀 Ver NPCs", UDim2.new(1, -55, 0, 65), buttonSize, false, function()
     showESP = not showESP
     if not showESP then
         clearNPCHighlights()
     end
 end)
 
-createButton("TogglePlayerESP", "👀 ESP Jogadores", UDim2.new(1, -110, 0, 95), buttonSize, false, function()
+createButton("TogglePlayerESP", "👀 Ver Jogadores", UDim2.new(1, -110, 0, 95), buttonSize, false, function()
     showPlayerESP = not showPlayerESP
     if not showPlayerESP then
         clearPlayerHighlights()
     end
 end)
 
-createButton("TerminateScript", "🛑 Parar", UDim2.new(1, -55, 0, 95), buttonSize, false, function()
+createButton("TerminateScript", "🛑 Desativar", UDim2.new(1, -55, 0, 95), buttonSize, false, function()
     terminateScript()
 end)
 
--- Create round shoot button (bottom-right)
-local shootButton = createButton("ShootButton", "💥 Atirar", UDim2.new(1, -60, 1, -60), UDim2.new(0, 50, 0, 50), true, function()
+-- Create round shoot button (higher on the right side)
+local shootButton = createButton("ShootButton", "🔫 Atirar", UDim2.new(1, -60, 1, -120), UDim2.new(0, 50, 0, 50), true, function()
     simulateTap() -- Single tap on click
 end)
 
@@ -394,17 +402,17 @@ local renderSteppedConnection = RunService.RenderStepped:Connect(function()
         -- Check if current target is dead or invalid
         if currentTarget and targetList[currentTargetIndex] then
             local targetModel = targetList[currentTargetIndex].Model
-            if not currentTarget.Parent or isTargetDead(targetModel) then
+            if not currentTarget.Part.Parent or isTargetDead(targetModel) then
                 cycleNextTarget()
             end
         end
 
         -- Update target list and select closest if no target is locked
-        if not currentTarget or not currentTarget.Parent then
+        if not currentTarget or not currentTarget.Part.Parent then
             targetList = getTargetsInRange()
             if #targetList > 0 then
                 currentTargetIndex = 1
-                currentTarget = targetList[currentTargetIndex].Part
+                currentTarget = targetList[currentTargetIndex]
             else
                 currentTarget = nil
                 currentTargetIndex = 0
@@ -412,7 +420,7 @@ local renderSteppedConnection = RunService.RenderStepped:Connect(function()
         end
 
         -- Adjust camera to locked target
-        if currentTarget and currentTarget.Parent then
+        if currentTarget and currentTarget.Part.Parent then
             camera.CFrame = CFrame.new(camera.CFrame.Position, currentTarget.Position)
         end
     end
