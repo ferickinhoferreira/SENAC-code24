@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local StarterGui = game:GetService("StarterGui")
 local GuiService = game:GetService("GuiService")
+local CollectionService = game:GetService("CollectionService")
 
 -- Player Variables
 local localPlayer = Players.LocalPlayer
@@ -144,10 +145,15 @@ local function isValidNPCModel(model)
     if not model:IsA("Model") or model == character then
         return false
     end
+    -- Check for humanoid or health
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     local healthValue = model:FindFirstChild("Health") or model:FindFirstChild("health")
     local hasParts = findHeadPart(model) and findChestPart(model)
-    return (humanoid or healthValue) and hasParts and not isPlayerModel(model)
+    -- Additional checks for NPC-like characteristics
+    local isNPC = (humanoid or healthValue) and hasParts and not isPlayerModel(model)
+    -- Check for NPC tags or naming conventions (customize based on game)
+    local hasNPCTag = CollectionService:HasTag(model, "NPC") or model.Name:lower():find("npc") or model.Name:lower():find("enemy")
+    return isNPC or hasNPCTag
 end
 
 -- Check if model is within ESP range
@@ -164,20 +170,20 @@ end
 local function scanWorkspaceForNPCs()
     local newTargets = {}
     local function scanContainer(container)
-        for _, obj in ipairs(container:GetChildren()) do
+        for _, obj in ipairs(container:GetDescendants()) do -- Use GetDescendants for deeper scanning
             if obj:IsA("Model") and isValidNPCModel(obj) then
                 local head = findHeadPart(obj)
                 local chest = findChestPart(obj)
                 if head and chest then
                     newTargets[obj] = {Head = head, Chest = chest}
                 end
-            elseif obj:IsA("Folder") or obj:IsA("Model") then
-                scanContainer(obj)
             end
         end
     end
     scanContainer(Workspace)
     npcTargets = newTargets
+    -- Debug: Notify how many NPCs were found
+    sendNotification("NPC Scan", "Found " .. #newTargets .. " NPCs")
 end
 
 -- Update NPC cache on descendant added
@@ -244,7 +250,8 @@ end
 local function getClosestNPCInFOV(centerPos)
     local closest = nil
     local shortestDistance = math.huge
-    for _, target in ipairs(getValidNPCTargets()) do
+    local validTargets = getValidNPCTargets()
+    for _, target in ipairs(validTargets) do
         local part = aimHead and target.Head or target.Chest
         if part and part.Parent then
             local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
@@ -256,6 +263,12 @@ local function getClosestNPCInFOV(centerPos)
                 end
             end
         end
+    end
+    -- Debug: Notify if a target was found
+    if closest then
+        sendNotification("Aimbot", "Targeting NPC at distance: " .. math.floor(shortestDistance))
+    else
+        sendNotification("Aimbot", "No NPC in FOV (" .. #validTargets .. " total NPCs)")
     end
     return closest
 end
