@@ -13,18 +13,20 @@ local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 local camera = Workspace.CurrentCamera
 
 -- State Variables
-local aiming = false
+local autoAimbotEnabled = true -- Auto-aim toggle
 local aimbotEnabled = true -- Aimbot for NPCs
 local playerAimbotEnabled = false -- Aimbot for players
 local showESP = false -- Highlight for NPCs
 local showPlayerESP = false -- Highlight for players
-local useTouchAimbot = false -- Control if touch can toggle aimbot
 local FOV_RADIUS = 250
 local aimHead = true -- Toggle between head (true) and chest (false)
 local espRange = 150 -- Initial ESP distance (near)
 local espRanges = {150, 300, 500} -- Near, Medium, Far
 local espRangeIndex = 1 -- Initial index for range cycle
 local fovVisible = true -- FOV circle visibility
+local currentTarget = nil -- Currently locked target
+local targetList = {} -- List of targets in FOV
+local currentTargetIndex = 0 -- Index for target cycling
 
 -- NPC Cache
 local npcTargets = {} -- Cache of valid NPC targets
@@ -61,7 +63,7 @@ local function sanitizeString(str)
     return str:gsub("[\"']", ""):gsub("\n", " "):sub(1, 100)
 end
 
--- Function to create a draggable floating button with red stroke
+-- Function to create a smaller draggable floating button with red stroke
 local function createButton(name, text, position, size, callback)
     local frame = Instance.new("Frame")
     frame.Name = name
@@ -75,7 +77,7 @@ local function createButton(name, text, position, size, callback)
     frame.Draggable = true
 
     local uicorner = Instance.new("UICorner")
-    uicorner.CornerRadius = UDim.new(0, 10)
+    uicorner.CornerRadius = UDim.new(0, 8)
     uicorner.Parent = frame
 
     local uistroke = Instance.new("UIStroke")
@@ -145,13 +147,10 @@ local function isValidNPCModel(model)
     if not model:IsA("Model") or model == character then
         return false
     end
-    -- Check for humanoid or health
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     local healthValue = model:FindFirstChild("Health") or model:FindFirstChild("health")
     local hasParts = findHeadPart(model) and findChestPart(model)
-    -- Additional checks for NPC-like characteristics
     local isNPC = (humanoid or healthValue) and hasParts and not isPlayerModel(model)
-    -- Check for NPC tags or naming conventions (customize based on game)
     local hasNPCTag = CollectionService:HasTag(model, "NPC") or model.Name:lower():find("npc") or model.Name:lower():find("enemy")
     return isNPC or hasNPCTag
 end
@@ -170,7 +169,7 @@ end
 local function scanWorkspaceForNPCs()
     local newTargets = {}
     local function scanContainer(container)
-        for _, obj in ipairs(container:GetDescendants()) do -- Use GetDescendants for deeper scanning
+        for _, obj in ipairs(container:GetDescendants()) do
             if obj:IsA("Model") and isValidNPCModel(obj) then
                 local head = findHeadPart(obj)
                 local chest = findChestPart(obj)
@@ -182,7 +181,6 @@ local function scanWorkspaceForNPCs()
     end
     scanContainer(Workspace)
     npcTargets = newTargets
-    -- Debug: Notify how many NPCs were found
     sendNotification("NPC Scan", "Found " .. #newTargets .. " NPCs")
 end
 
@@ -246,51 +244,48 @@ local function isInsideFOV(screenPos, centerPos)
     return distance <= FOV_RADIUS
 end
 
--- Get closest NPC in FOV
-local function getClosestNPCInFOV(centerPos)
-    local closest = nil
-    local shortestDistance = math.huge
-    local validTargets = getValidNPCTargets()
-    for _, target in ipairs(validTargets) do
+-- Get targets in FOV (NPCs or players)
+local function getTargetsInFOV(centerPos, isPlayer)
+    local targetsInFOV = {}
+    local targets = isPlayer and getValidPlayerTargets() or getValidNPCTargets()
+    for _, target in ipairs(targets) do
         local part = aimHead and target.Head or target.Chest
         if part and part.Parent then
             local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
             if onScreen and isInsideFOV(screenPos, centerPos) then
                 local dist = (part.Position - (character.HumanoidRootPart and character.HumanoidRootPart.Position or Vector3.new())).Magnitude
-                if dist < shortestDistance then
-                    shortestDistance = dist
-                    closest = part
-                end
+                table.insert(targetsInFOV, {Part = part, Distance = dist})
             end
         end
     end
-    -- Debug: Notify if a target was found
-    if closest then
-        sendNotification("Aimbot", "Targeting NPC at distance: " .. math.floor(shortestDistance))
-    else
-        sendNotification("Aimbot", "No NPC in FOV (" .. #validTargets .. " total NPCs)")
-    end
-    return closest
+    -- Sort by distance
+    table.sort(targetsInFOV, function(a, b) return a.Distance < b.Distance end)
+    return targetsInFOV
 end
 
--- Get closest player in FOV
-local function getClosestPlayerInFOV(centerPos)
-    local closest = nil
-    local shortestDistance = math.huge
-    for _, target in ipairs(getValidPlayerTargets()) do
-        local part = aimHead and target.Head or target.Chest
-        if part and part.Parent then
-            local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-            if onScreen and isInsideFOV(screenPos, centerPos) then
-                local dist = (part.Position - (character.HumanoidRootPart and character.HumanoidRootPart.Position or Vector3.new())).Magnitude
-                if dist < shortestDistance then
-                    shortestDistance = dist
-                    closest = part
-                end
-            end
+-- Cycle to the next target
+local function cycleNextTarget(centerPos)
+    targetList = {}
+    if aimbotEnabled then
+        targetList = getTargetsInFOV(centerPos, false) -- NPCs
+    end
+    if playerAimbotEnabled then
+        for _, target in ipairs(getTargetsInFOV(centerPos, true)) do
+            table.insert(targetList, target) -- Players
         end
     end
-    return closest
+    table.sort(targetList, function(a, b) return a.Distance < b.Distance end)
+
+    if #targetList == 0 then
+        currentTarget = nil
+        currentTargetIndex = 0
+        sendNotification("Aimbot", "No targets in FOV")
+        return
+    end
+
+    currentTargetIndex = (currentTargetIndex % #targetList) + 1
+    currentTarget = targetList[currentTargetIndex].Part
+    sendNotification("Aimbot", "Targeting " .. (aimbotEnabled and "NPC" or "Player") .. " at distance: " .. math.floor(targetList[currentTargetIndex].Distance))
 end
 
 -- Create NPC highlight
@@ -414,18 +409,23 @@ local function updatePlayerESP()
     activePlayerTargets = newActiveTargets
 end
 
--- Create GUI buttons in upper-right corner
-createButton("ToggleNPCAimbot", "NPC Aimbot", UDim2.new(1, -210, 0, 10), UDim2.new(0, 100, 0, 50), function()
+-- Create smaller GUI buttons in upper-right corner
+local buttonSize = UDim2.new(0, 70, 0, 35)
+createButton("ToggleNPCAimbot", "NPC Aimbot", UDim2.new(1, -150, 0, 10), buttonSize, function()
     aimbotEnabled = not aimbotEnabled
+    currentTarget = nil
+    currentTargetIndex = 0
     sendNotification("NPC Aimbot", aimbotEnabled and "Enabled" or "Disabled")
 end)
 
-createButton("TogglePlayerAimbot", "Player Aimbot", UDim2.new(1, -100, 0, 10), UDim2.new(0, 100, 0, 50), function()
+createButton("TogglePlayerAimbot", "Player Aimbot", UDim2.new(1, -75, 0, 10), buttonSize, function()
     playerAimbotEnabled = not playerAimbotEnabled
+    currentTarget = nil
+    currentTargetIndex = 0
     sendNotification("Player Aimbot", playerAimbotEnabled and "Enabled" or "Disabled")
 end)
 
-createButton("ToggleNPCESP", "NPC ESP", UDim2.new(1, -210, 0, 70), UDim2.new(0, 100, 0, 50), function()
+createButton("ToggleNPCESP", "NPC ESP", UDim2.new(1, -150, 0, 50), buttonSize, function()
     if showESP and espRangeIndex == #espRanges then
         showESP = false
         clearNPCHighlights()
@@ -438,7 +438,7 @@ createButton("ToggleNPCESP", "NPC ESP", UDim2.new(1, -210, 0, 70), UDim2.new(0, 
     end
 end)
 
-createButton("TogglePlayerESP", "Player ESP", UDim2.new(1, -100, 0, 70), UDim2.new(0, 100, 0, 50), function()
+createButton("TogglePlayerESP", "Player ESP", UDim2.new(1, -75, 0, 50), buttonSize, function()
     if showPlayerESP and espRangeIndex == #espRanges then
         showPlayerESP = false
         clearPlayerHighlights()
@@ -451,65 +451,57 @@ createButton("TogglePlayerESP", "Player ESP", UDim2.new(1, -100, 0, 70), UDim2.n
     end
 end)
 
-createButton("ToggleTouchAimbot", "Touch Aimbot", UDim2.new(1, -210, 0, 130), UDim2.new(0, 100, 0, 50), function()
-    useTouchAimbot = not useTouchAimbot
-    sendNotification("Touch Aimbot", useTouchAimbot and "Enabled" or "Disabled")
+createButton("ToggleAutoAimbot", "Lock Aimbot", UDim2.new(1, -150, 0, 90), buttonSize, function()
+    autoAimbotEnabled = not autoAimbotEnabled
+    if not autoAimbotEnabled then
+        currentTarget = nil
+        currentTargetIndex = 0
+    end
+    sendNotification("Auto Aimbot", autoAimbotEnabled and "Enabled" or "Disabled")
 end)
 
-createButton("ToggleAimMode", "Aim: Head", UDim2.new(1, -100, 0, 130), UDim2.new(0, 100, 0, 50), function()
+createButton("ToggleAimMode", "Aim: Head", UDim2.new(1, -75, 0, 90), buttonSize, function()
     aimHead = not aimHead
+    currentTarget = nil
+    currentTargetIndex = 0
     sendNotification("Aim Mode", aimHead and "Head" or "Chest")
 end)
 
-createButton("IncreaseFOV", "FOV +", UDim2.new(1, -210, 0, 190), UDim2.new(0, 100, 0, 50), function()
+createButton("NextTarget", "Next Target", UDim2.new(1, -150, 0, 130), buttonSize, function()
+    cycleNextTarget(getScreenCenter())
+end)
+
+createButton("IncreaseFOV", "FOV +", UDim2.new(1, -75, 0, 130), buttonSize, function()
     FOV_RADIUS = math.clamp(FOV_RADIUS + 10, 10, 1000)
     fovCircle.Radius = FOV_RADIUS
+    currentTarget = nil
+    currentTargetIndex = 0
     sendNotification("FOV", "Radius: " .. FOV_RADIUS)
 end)
 
-createButton("DecreaseFOV", "FOV -", UDim2.new(1, -100, 0, 190), UDim2.new(0, 100, 0, 50), function()
+createButton("DecreaseFOV", "FOV -", UDim2.new(1, -150, 0, 170), buttonSize, function()
     FOV_RADIUS = math.clamp(FOV_RADIUS - 10, 10, 1000)
     fovCircle.Radius = FOV_RADIUS
+    currentTarget = nil
+    currentTargetIndex = 0
     sendNotification("FOV", "Radius: " .. FOV_RADIUS)
 end)
 
-createButton("ToggleFOVVisibility", "Toggle FOV", UDim2.new(1, -210, 0, 250), UDim2.new(0, 100, 0, 50), function()
+createButton("ToggleFOVVisibility", "Toggle FOV", UDim2.new(1, -75, 0, 170), buttonSize, function()
     fovVisible = not fovVisible
     fovCircle.Visible = fovVisible
     sendNotification("FOV Circle", fovVisible and "Visible" or "Invisible")
 end)
 
-createButton("TerminateScript", "Stop", UDim2.new(1, -100, 0, 250), UDim2.new(0, 100, 0, 50), function()
+createButton("TerminateScript", "Stop", UDim2.new(1, -150, 0, 210), buttonSize, function()
     terminateScript()
 end)
 
--- Touch-based aimbot control
-local touchConnection
-local touchMovedConnection
-local lastTouchPos = nil
-
--- Get screen center as fallback
+-- Get screen center as FOV center
 local function getScreenCenter()
     local viewportSize = camera.ViewportSize
     return Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
 end
-
-touchConnection = UserInputService.TouchStarted:Connect(function(touch, processed)
-    if processed or not useTouchAimbot then return end
-    aiming = true
-    lastTouchPos = touch.Position
-end)
-
-touchMovedConnection = UserInputService.TouchMoved:Connect(function(touch, processed)
-    if processed or not useTouchAimbot then return end
-    lastTouchPos = touch.Position
-end)
-
-UserInputService.TouchEnded:Connect(function(touch, processed)
-    if processed or not useTouchAimbot then return end
-    aiming = false
-    lastTouchPos = nil
-end)
 
 -- Main loop
 local renderSteppedConnection = RunService.RenderStepped:Connect(function()
@@ -519,25 +511,40 @@ local renderSteppedConnection = RunService.RenderStepped:Connect(function()
         lastNPCScan = currentTime
     end
 
-    -- Update FOV circle position
-    local centerPos = lastTouchPos or getScreenCenter() -- Use touch position or screen center
+    -- Update FOV circle position (always screen center)
+    local centerPos = getScreenCenter()
     fovCircle.Position = centerPos
     fovCircle.Radius = FOV_RADIUS
     fovCircle.Visible = fovVisible
 
-    -- Aimbot for NPCs
-    if aiming and aimbotEnabled then
-        local target = getClosestNPCInFOV(centerPos)
-        if target then
-            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-        end
-    end
+    -- Auto-aimbot logic
+    if autoAimbotEnabled and (aimbotEnabled or playerAimbotEnabled) then
+        -- Update target list and select closest if no target is locked
+        if not currentTarget or not currentTarget.Parent then
+            targetList = {}
+            if aimbotEnabled then
+                targetList = getTargetsInFOV(centerPos, false) -- NPCs
+            end
+            if playerAimbotEnabled then
+                for _, target in ipairs(getTargetsInFOV(centerPos, true)) do
+                    table.insert(targetList, target) -- Players
+                end
+            end
+            table.sort(targetList, function(a, b) return a.Distance < b.Distance end)
 
-    -- Aimbot for players
-    if aiming and playerAimbotEnabled then
-        local target = getClosestPlayerInFOV(centerPos)
-        if target then
-            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
+            if #targetList > 0 then
+                currentTargetIndex = 1
+                currentTarget = targetList[currentTargetIndex].Part
+                sendNotification("Aimbot", "Locked on " .. (aimbotEnabled and "NPC" or "Player") .. " at distance: " .. math.floor(targetList[currentTargetIndex].Distance))
+            else
+                currentTarget = nil
+                currentTargetIndex = 0
+            end
+        end
+
+        -- Adjust camera to locked target
+        if currentTarget and currentTarget.Parent then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, currentTarget.Position)
         end
     end
 
@@ -577,12 +584,6 @@ function terminateScript()
     end
     if playerAddedConnection then
         playerAddedConnection:Disconnect()
-    end
-    if touchConnection then
-        touchConnection:Disconnect()
-    end
-    if touchMovedConnection then
-        touchMovedConnection:Disconnect()
     end
 
     -- Clear highlights
