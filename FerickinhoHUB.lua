@@ -2228,6 +2228,10 @@ local function initializeGui()
     	loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/BrainrotEvolution"))()
     	print("🐸 Brainrot Evolution: Executado")
 	end, false)
+	addButton("🚗 Race RNG Script", function()
+    	loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/RaceRNG"))() 
+    	print("🚗 Race RNG Script: Executado")
+	end, false)
 	addButton("👽 Zombie Attack", function()
     	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
     	print("👽 Zombie Attack: Executado")
@@ -2235,6 +2239,26 @@ local function initializeGui()
 	addButton("😂 Meme Sea", function()
     	loadstring(game:HttpGet("https://raw.githubusercontent.com/ZaqueHub/ShinyHub-MMSea/main/MEME%20SEA%20PROTECT.txt"))()
     	print("😂 Meme Sea: Executado")
+	end, false)
+	addButton("💰 Daily Reward Hack", function()
+	local Coins = 99999 -- Altere aqui a quantidade desejada de moedas
+	local args = {
+		[1] = {
+			["Jackpot_Chance"] = "600",
+			["Reward_Name"] = Coins .. " Coins",
+			["#"] = "3",
+			["Frame_Gradient_Anim"] = false,
+			["Jackpot_Gradient_Anim"] = false,
+			["Reward_Image"] = 138926676046585,
+			["Frame_Gradient"] = "Unique_Gradient",
+			["Jackpot_Gradient"] = "Unique_Gradient",
+			["Value"] = Coins,
+			["Frame_Image"] = 81770710992001
+		}
+	}
+
+	game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
+	print("💰 Recompensa diária hackeada com " .. Coins .. " moedas!")
 	end, false)
 	addButton("📍 Teleportar para o Spawn", function()
 	local player = game.Players.LocalPlayer
