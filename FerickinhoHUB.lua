@@ -513,7 +513,7 @@ local function createGui()
     playersLabel.Text = "Jogadores: 0"
     playersLabel.TextColor3 = themeColors.Text
     playersLabel.Font = Enum.Font.Gotham
-    scriptsLabel.TextSize = 12
+    playersLabel.TextSize = 12
     playersLabel.TextXAlignment = Enum.TextXAlignment.Left
     playersLabel.ZIndex = 9
     playersLabel.Parent = infoFrame
@@ -1838,7 +1838,7 @@ local function setupMouse(enabled)
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
         UserInputService.MouseIconEnabled = false
     else
-        UserInputService.MouseBehavior = originalMouseBehaviorZEN or Enum.MouseBehavior.Default
+        UserInputService.MouseBehavior = originalMouseBehavior or Enum.MouseBehavior.Default
         UserInputService.MouseIconEnabled = true
     end
 end
@@ -2173,14 +2173,11 @@ local function initializeGui()
         PlayerCharacter = LocalPlayer.Character
     end
 
+    -- Seção: Modificações do Jogador
     addSectionLabel("Modificações do Jogador")
-    addSlider("Velocidade", 16, 16, 1000, function(value)
-        walkSpeed = value
-        guiState.walkSpeed = value
-        if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
-            PlayerCharacter.Humanoid.WalkSpeed = value
-        end
-    end)
+    addButton("Noclip", function(state)
+        toggleNoclip(state)
+    end, true)
     addSlider("Pulo", 50, 50, 600, function(value)
         jumpPower = value
         guiState.jumpPower = value
@@ -2188,125 +2185,34 @@ local function initializeGui()
             PlayerCharacter.Humanoid.JumpPower = value
         end
     end)
-    addButton("🕺 Animações de Movimento", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/anima%C3%A7%C3%B5es%20de%20movimento.lua"))()
-    	print("🕺 Animações de Movimento: Executado")
-	end, false)
-	addButton("🎯 Aimbot PC", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
-    	print("🎯 Aimbot PC: Executado")
-	end, false)
-	addButton("🏴‍☠️ Blox Fruits Auto Join + Tradução", function()
-	local Settings = {
-		JoinTeam = "Pirates"; -- Altere para "Marines" se quiser
-		Translator = true;
-	}
-
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/newredz/BloxFruits/refs/heads/main/Source.luau"))(Settings)
-	print("🏴‍☠️ Blox Fruits: Script executado com configurações personalizadas")
-	end, false)
-	addButton("🥏 Blade Ball", function()
-    	loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/79ab2d3174641622d317f9e234797acb.lua"))()
-    	print("🥏 Blade Ball: Executado")
-	end, false)
-	addButton("⚽ Blue Lock", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/BlueLock"))()
-    	print("⚽ Blue Lock: Executado")
-	end, false)
-	addButton("🤖 Be NPC or Die", function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/Bac0nHck/Scripts/refs/heads/main/BeNpcOrDie"))()
-	print("🤖 Be NPC or Die: Script executado")
-	end, false)
-	addButton("🚪 Doors | Blackking + BobHub", function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/KINGHUB01/BlackKing-obf/main/Doors%20Blackking%20And%20BobHub"))()
-	print("🚪 Doors Blackking + BobHub: Script executado")
-	end, false)
-	addButton("🧱 Doors | DarkDoorsKing Rank", function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/DarkDoorsKing/Clinet/main/DoorsRank"))()
-	print("🧱 Doors DarkDoorsKing Rank: Script executado")
-	end, false)
-	addButton("🔫 Aimbot Mobile", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Aimbot%20mobile.lua"))()
-    	print("🔫 Aimbot Mobile: Executado")
-	end, false)
-	addButton("🗡️ MM2", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/MM2.lua"))()
-    	print("🗡️ MM2: Executado")
-	end, false)
-	addButton("🧟 Dead Rails", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DeadRails"))()
-    	print("🧟 Dead Rails: Executado")
-	end, false)
-	addButton("🥀 Hunters", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/perfectusmim1/script/refs/heads/main/crossover"))()
-    	print("🥀 Hunters: Executado")
-	end, false)
-	addButton("⚔️ Arise Crossover", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/perfectusmim1/script/refs/heads/main/crossover"))()
-    	print("⚔️ Arise Crossover: Executado")
-	end, false)
-	addButton("🐸 Brainrot Evolution", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/BrainrotEvolution"))()
-    	print("🐸 Brainrot Evolution: Executado")
-	end, false)
-	addButton("🚗 Race RNG Script", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/RaceRNG"))() 
-    	print("🚗 Race RNG Script: Executado")
-	end, false)
-	addButton("👽 Zombie Attack", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
-    	print("👽 Zombie Attack: Executado")
-	end, false)
-	addButton("😂 Meme Sea", function()
-    	loadstring(game:HttpGet("https://raw.githubusercontent.com/ZaqueHub/ShinyHub-MMSea/main/MEME%20SEA%20PROTECT.txt"))()
-    	print("😂 Meme Sea: Executado")
-	end, false)
-	addButton("💰 Daily Reward Hack", function()
-	local Coins = 99999 -- Altere aqui a quantidade desejada de moedas
-	local args = {
-		[1] = {
-			["Jackpot_Chance"] = "600",
-			["Reward_Name"] = Coins .. " Coins",
-			["#"] = "3",
-			["Frame_Gradient_Anim"] = false,
-			["Jackpot_Gradient_Anim"] = false,
-			["Reward_Image"] = 138926676046585,
-			["Frame_Gradient"] = "Unique_Gradient",
-			["Jackpot_Gradient"] = "Unique_Gradient",
-			["Value"] = Coins,
-			["Frame_Image"] = 81770710992001
-		}
-	}
-
-	game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
-	print("💰 Recompensa diária hackeada com " .. Coins .. " moedas!")
-	end, false)
-	addButton("📍 Teleportar para o Spawn", function()
-	local player = game.Players.LocalPlayer
-	local char = player.Character or player.CharacterAdded:Wait()
-	local hrp = char:WaitForChild("HumanoidRootPart")
-	local spawnLocation = workspace:WaitForChild("Spawns"):WaitForChild("SpawnLocation")
-	hrp.CFrame = spawnLocation.CFrame
-	print("📍 Teleporte realizado para o Spawn!")
-	end, false)
-	addButton("Pulo Infinito", function(state)
+    addButton("Pulo Infinito", function(state)
         toggleInfiniteJump(state)
     end, true)
-    addButton("Voar", function(state)
-        toggleFly(state)
-    end, true)
+    addSlider("Velocidade", 16, 16, 1000, function(value)
+        walkSpeed = value
+        guiState.walkSpeed = value
+        if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
+            PlayerCharacter.Humanoid.WalkSpeed = value
+        end
+    end)
     addSlider("Velocidade de Voo", 50, 10, 200, function(value)
         flySpeed = value
         guiState.flySpeed = value
     end)
-    addButton("Noclip", function(state)
-        toggleNoclip(state)
+    addButton("Voar", function(state)
+        toggleFly(state)
     end, true)
 
+    -- Seção: Modificações Visuais
     addSectionLabel("Modificações Visuais")
-    addButton("Esp Player", function(state)
-        toggleEspPlayer(state)
-    end, true)
+    addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
+        flashlightRange = value
+        guiState.flashlightRange = value
+    end)
+    addSlider("Distância ESP NPC", 500, 50, 1000, function(value)
+        espNPCDistance = value
+        guiState.espNPCDistance = value
+    end)
     addSlider("Distância ESP Player", 500, 50, 1000, function(value)
         espPlayerDistance = value
         guiState.espPlayerDistance = value
@@ -2314,21 +2220,119 @@ local function initializeGui()
     addButton("Esp NPC", function(state)
         toggleEspNPC(state)
     end, true)
-    addSlider("Distância ESP NPC", 500, 50, 1000, function(value)
-        espNPCDistance = value
-        guiState.espNPCDistance = value
-    end)
-    addButton("Fullbright", function(state)
-        toggleFullbright(state)
+    addButton("Esp Player", function(state)
+        toggleEspPlayer(state)
     end, true)
     addButton("Flashlight", function(state)
         toggleFlashlight(state)
     end, true)
-    addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
-        flashlightRange = value
-        guiState.flashlightRange = value
-    end)
+    addButton("Fullbright", function(state)
+        toggleFullbright(state)
+    end, true)
 
+    -- Seção: Scripts de Jogos
+    addSectionLabel("Scripts de Jogos")
+    addButton("🎯 Aimbot PC", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
+        print("🎯 Aimbot PC: Executado")
+    end, false)
+    addButton("🔫 Aimbot Mobile", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Aimbot%20mobile.lua"))()
+        print("🔫 Aimbot Mobile: Executado")
+    end, false)
+    addButton("🕺 Animações de Movimento", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/anima%C3%A7%C3%B5es%20de%20movimento.lua"))()
+        print("🕺 Animações de Movimento: Executado")
+    end, false)
+    addButton("⚔️ Arise Crossover", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/perfectusmim1/script/refs/heads/main/crossover"))()
+        print("⚔️ Arise Crossover: Executado")
+    end, false)
+    addButton("🤖 Be NPC or Die", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Bac0nHck/Scripts/refs/heads/main/BeNpcOrDie"))()
+        print("🤖 Be NPC or Die: Script executado")
+    end, false)
+    addButton("🥏 Blade Ball", function()
+        loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/79ab2d3174641622d317f9e234797acb.lua"))()
+        print("🥏 Blade Ball: Executado")
+    end, false)
+    addButton("🏴‍☠️ Blox Fruits Auto Join + Tradução", function()
+        local Settings = {
+            JoinTeam = "Pirates"; -- Altere para "Marines" se quiser
+            Translator = true;
+        }
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/newredz/BloxFruits/refs/heads/main/Source.luau"))(Settings)
+        print("🏴‍☠️ Blox Fruits: Script executado com configurações personalizadas")
+    end, false)
+    addButton("⚽ Blue Lock", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/BlueLock"))()
+        print("⚽ Blue Lock: Executado")
+    end, false)
+    addButton("🐸 Brainrot Evolution", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/BrainrotEvolution"))()
+        print("🐸 Brainrot Evolution: Executado")
+    end, false)
+    addButton("💰 Daily Reward Hack", function()
+        local Coins = 99999 -- Altere aqui a quantidade desejada de moedas
+        local args = {
+            [1] = {
+                ["Jackpot_Chance"] = "600",
+                ["Reward_Name"] = Coins .. " Coins",
+                ["#"] = "3",
+                ["Frame_Gradient_Anim"] = false,
+                ["Jackpot_Gradient_Anim"] = false,
+                ["Reward_Image"] = 138926676046585,
+                ["Frame_Gradient"] = "Unique_Gradient",
+                ["Jackpot_Gradient"] = "Unique_Gradient",
+                ["Value"] = Coins,
+                ["Frame_Image"] = 81770710992001
+            }
+        }
+        game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
+        print("💰 Recompensa diária hackeada com " .. Coins .. " moedas!")
+    end, false)
+    addButton("🧟 Dead Rails", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DeadRails"))()
+        print("🧟 Dead Rails: Executado")
+    end, false)
+    addButton("🚪 Doors | Blackking + BobHub", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/KINGHUB01/BlackKing-obf/main/Doors%20Blackking%20And%20BobHub"))()
+        print("🚪 Doors Blackking + BobHub: Script executado")
+    end, false)
+    addButton("🧱 Doors | DarkDoorsKing Rank", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/DarkDoorsKing/Clinet/main/DoorsRank"))()
+        print("🧱 Doors DarkDoorsKing Rank: Script executado")
+    end, false)
+    addButton("🥀 Hunters", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/Hunters"))()  
+        print("🥀 Hunters: Executado")
+    end, false)
+    addButton("😂 Meme Sea", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ZaqueHub/ShinyHub-MMSea/main/MEME%20SEA%20PROTECT.txt"))()
+        print("😂 Meme Sea: Executado")
+    end, false)
+    addButton("🗡️ MM2", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/MM2.lua"))()
+        print("🗡️ MM2: Executado")
+    end, false)
+    addButton("🚗 Race RNG Script", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/RaceRNG"))()
+        print("🚗 Race RNG Script: Executado")
+    end, false)
+    addButton("📍 Teleportar para o Spawn", function()
+        local player = game.Players.LocalPlayer
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        local spawnLocation = workspace:WaitForChild("Spawns"):WaitForChild("SpawnLocation")
+        hrp.CFrame = spawnLocation.CFrame
+        print("📍 Teleporte realizado para o Spawn!")
+    end, false)
+    addButton("👽 Zombie Attack", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
+        print("👽 Zombie Attack: Executado")
+    end, false)
+
+    -- Seção: Lista de Jogadores
     addSectionLabel("Lista de Jogadores")
     addSlider("Distância de Seguimento", 5, 1, 50, function(value)
         followDistance = value
@@ -2336,15 +2340,17 @@ local function initializeGui()
     end)
     createPlayerList()
 
+    -- Seção: Controle de Teleporte
+    addSectionLabel("Controle de Teleporte")
+    addButton("Teleportar para o Cursor/Toque", function()
+        teleportToMouse()
+    end, false)
+
+    -- Seção: Controles do Script
     addSectionLabel("Controles do Script")
     addButton("Encerrar tudo", function()
         terminateScript()
-    end)
-
-	addSectionLabel("Controle de Teleporte")
-addButton("Teleportar para o Cursor/Toque", function()
-    teleportToMouse()
-end, false)
+    end, false)
 
     local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then
@@ -2377,9 +2383,9 @@ end, false)
             characterControlActive = not characterControlActive
             blockPlayerMovement(not characterControlActive)
             print("Controle do personagem: " .. (characterControlActive and "Ativado" or "Desativado"))
-        elseif input.KeyCode == Enum.KeyCode.F3 then -- Removida a restrição de cameraActive
-        	playSound("5852470908")
-        	teleportToMouse()
+        elseif input.KeyCode == Enum.KeyCode.F3 then
+            playSound("5852470908")
+            teleportToMouse()
         elseif input.KeyCode == Enum.KeyCode.Minus then
             playSound("5852470908")
             normalSpeed = math.max(10, normalSpeed - 5)
