@@ -2195,7 +2195,7 @@ local function initializeGui()
             PlayerCharacter.Humanoid.WalkSpeed = value
         end
     end)
-    addSlider("Velocidade de Voo", 50, 10, 200, function(value)
+    addSlider("Velocidade de Voo", 50, 10, 1000, function(value)
         flySpeed = value
         guiState.flySpeed = value
     end)
@@ -2304,7 +2304,7 @@ local function initializeGui()
         print("🧱 Doors DarkDoorsKing Rank: Script executado")
     end, false)
     addButton("🥀 Hunters", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/Hunters"))()  
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/perfectusmim1/script/refs/heads/main/crossover"))()
         print("🥀 Hunters: Executado")
     end, false)
     addButton("😂 Meme Sea", function()
@@ -2330,6 +2330,60 @@ local function initializeGui()
     addButton("👽 Zombie Attack", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
         print("👽 Zombie Attack: Executado")
+    end, false)
+    -- Novos botões adicionados
+    addButton("🪄 Wizard West", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/WizardWest"))()
+        print("🪄 Wizard West: Executado")
+    end, false)
+    addButton("🧌 Dungeon Leveling", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DungeonLeveling"))()
+        print("🧌 Dungeon Leveling: Executado")
+    end, false)
+    addButton("🐟 Fisch", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/FischModded"))()
+        print("🐟 Fisch: Executado")
+    end, false)
+    addButton("🏹 Muder VS Xeriff", function()
+        local Coins = 99999
+        local args = {
+            [1] = {
+                ["Jackpot_Chance"] = "600",
+                ["Reward_Name"] = Coins .. " Coins",
+                ["#"] = "3",
+                ["Frame_Gradient_Anim"] = false,
+                ["Jackpot_Gradient_Anim"] = false,
+                ["Reward_Image"] = 138926676046585,
+                ["Frame_Gradient"] = "Unique_Gradient",
+                ["Jackpot_Gradient"] = "Unique_Gradient",
+                ["Value"] = Coins,
+                ["Frame_Image"] = 81770710992001
+            }
+        }
+        game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
+        print("Hack Recompensa Diária: Executado com " .. Coins .. " moedas")
+    end, false)
+    addButton("Luarmor Script", function()
+        loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/730854e5b6499ee91deb1080e8e12ae3.lua"))()
+        print("Luarmor Script: Executado")
+    end, false)
+    addButton("Loop Recompensa Desenvolvedor", function()
+        task.spawn(function()
+            while wait() do
+                for i = 1, 10 do
+                    game:GetService("ReplicatedStorage").Packages._Index:FindFirstChild("sleitnick_knit@1.7.0").knit.Services.RewardService.RF.RequestPlayWithDeveloperAward:InvokeServer()
+                end
+            end
+        end)
+        print("Loop Recompensa Desenvolvedor: Iniciado")
+    end, false)
+    addButton("💨 R.E.P.O", function()
+        loadstring(game:HttpGet("https://rawscripts.net/raw/NEW-E.R.P.O.-OP-script-SOURCE-FREE-33663"))()
+        print("💨 R.E.P.O: Executado")
+    end, false)
+    addButton("💀 MindsFall", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/MindsFall"))()
+        print("💀 MindsFall: Executado")
     end, false)
 
     -- Seção: Lista de Jogadores
