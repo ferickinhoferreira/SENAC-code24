@@ -2242,7 +2242,12 @@ local function initializeGui()
     addButton("Fullbright", function(state)
         toggleFullbright(state)
     end, true)
-
+    -- Seção: Pura apelação
+    addSectionLabel("Pura Apelação")
+    addButton("🛡️ Infinite Yield Scripts", function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+        print("🛡️ Infinite Yield Scripts: Executado")
+    end, false)
     -- Seção: Scripts de Jogos
     addSectionLabel("Scripts de Jogos")
     addButton("🎯 Aimbot PC", function()
