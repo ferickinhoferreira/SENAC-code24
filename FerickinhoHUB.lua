@@ -46,6 +46,7 @@ local espNPCEnabled = false
 local flashlightEnabled = false
 local fullbrightEnabled = false
 local infiniteJumpEnabled = false
+local clickTeleportEnabled = false -- Nova variável para teleporte por clique
 local flySpeed = 50
 local flashlightRange = 60
 local espPlayerDistance = 500
@@ -92,7 +93,8 @@ local guiState = {
     flashlightRange = 60,
     espPlayerDistance = 500,
     espNPCDistance = 500,
-    followDistance = 5
+    followDistance = 5,
+    clickTeleportEnabled = false -- Adicionado ao guiState
 }
 
 -- Camera State Variables
@@ -554,6 +556,7 @@ local function createGui()
         if cameraActive then activeScripts = activeScripts + 1 end
         if slowMotionActive then activeScripts = activeScripts + 1 end
         if loopRotationEnabled then activeScripts = activeScripts + 1 end
+        if clickTeleportEnabled then activeScripts = activeScripts + 1 end -- Adicionado
         scriptsLabel.Text = string.format("Scripts: %d", activeScripts)
         playersLabel.Text = string.format("Jogadores: %d", #Players:GetPlayers())
     end)
@@ -1038,6 +1041,7 @@ local function terminateScript()
     cameraState = 0
     slowMotionActive = false
     loopRotationEnabled = false
+    clickTeleportEnabled = false -- Adicionado
     selectedFollowPlayer = nil
 
     -- Cancelar todos os loops ativos
@@ -1125,17 +1129,6 @@ local function terminateScript()
         screenGui = nil
     end
 end
-
-mouse = game.Players.LocalPlayer:GetMouse()
-tool = Instance.new("Tool")
-tool.RequiresHandle = false
-tool.Name = "Tp tool(Equip to Click TP)"
-tool.Activated:connect(function()
-local pos = mouse.Hit+Vector3.new(0,2.5,0)
-pos = CFrame.new(pos.X,pos.Y,pos.Z)
-game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = pos
-end)
-tool.Parent = game.Players.LocalPlayer.Backpack
 
 -- Fly Functionality
 local function toggleFly(enabled)
@@ -1763,6 +1756,9 @@ local function reapplyGuiState(character)
     if guiState.loopRotationEnabled then
         loopRotationEnabled = true
     end
+    if guiState.clickTeleportEnabled then -- Adicionado
+        clickTeleportEnabled = true
+    end
 
     if screenGui and not introFrame then
         screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -2094,28 +2090,22 @@ local function toggleSlowMotion(enabled)
 end
 
 -- Function for Teleport with Click
-local function teleportToMouse()
+local function performClickTeleport(position)
     local rootPart = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
     if not rootPart then
-        warn("Erro: HumanoidRootPart não encontrado. Personagem não carregado.")
+        warn("Erro: HumanoidRootPart não encontrado.")
         return
     end
-
     if not Workspace.CurrentCamera then
         warn("Erro: Câmera não encontrada.")
         return
     end
 
-    local mouse = LocalPlayer:GetMouse()
     local targetPosition
-    local screenPos
-
-    if UserInputService.TouchEnabled and lastTouchPos then
-        -- Mobile: Usa Raycast para encontrar superfície colidível
-        screenPos = lastTouchPos
-        print("Usando posição do toque: " .. tostring(screenPos))
-        local rayOrigin = Workspace.CurrentCamera:ViewportPointToRay(screenPos.X, screenPos.Y)
-        local maxDistance = 1000000 -- Distância grande para alcançar qualquer ponto
+    if UserInputService.TouchEnabled and position then
+        -- Mobile: Usa Raycast para encontrar superfície
+        local rayOrigin = Workspace.CurrentCamera:ViewportPointToRay(position.X, position.Y)
+        local maxDistance = 1000000
         local raycastParams = RaycastParams.new()
         raycastParams.FilterDescendantsInstances = {PlayerCharacter}
         raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
@@ -2123,15 +2113,13 @@ local function teleportToMouse()
         local raycastResult = Workspace:Raycast(rayOrigin.Origin, rayOrigin.Direction * maxDistance, raycastParams)
 
         if not raycastResult then
-            warn("Erro: Nenhuma superfície colidível encontrada. Apontando para o vazio?")
+            warn("Erro: Nenhuma superfície colidível encontrada.")
             return
         end
-
         targetPosition = raycastResult.Position
     else
-        -- PC: Usa mouse.Hit para posição de colisão
-        screenPos = UserInputService:GetMouseLocation()
-        print("Usando posição do mouse: " .. tostring(screenPos))
+        -- PC: Usa posição do mouse
+        local mouse = LocalPlayer:GetMouse()
         if not mouse.Hit then
             warn("Erro: Posição do mouse não detectada.")
             return
@@ -2139,15 +2127,29 @@ local function teleportToMouse()
         targetPosition = mouse.Hit.Position
     end
 
-    -- Ajuste de altura para evitar ficar preso
-    local safePosition = targetPosition + Vector3.new(0, 5, 0)
-
-    -- Teleporta o jogador
+    -- Ajustar altura para evitar ficar preso
+    local safePosition = targetPosition + Vector3.new(0, 2.5, 0)
     rootPart.CFrame = CFrame.new(safePosition)
-    loopRotationCenter = targetPosition
-    playSound("5852470908") -- Som de confirmação
+    playSound("5852470908")
     print("Teleportado para: " .. tostring(safePosition))
 end
+
+-- Function to Toggle Click Teleport
+local function toggleClickTeleport(enabled)
+    clickTeleportEnabled = enabled
+    guiState.clickTeleportEnabled = enabled
+    print("Teleportar para Clique: " .. (enabled and "Ativado" or "Desativado"))
+end
+
+-- Conexão para detectar cliques/toques
+local clickTeleportConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed or not clickTeleportEnabled then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local position = input.UserInputType == Enum.UserInputType.Touch and Vector2.new(input.Position.X, input.Position.Y) or nil
+        performClickTeleport(position)
+    end
+end)
+table.insert(connections, clickTeleportConnection)
 
 -- Function to Toggle Loop Rotation
 local function toggleLoopRotation(enabled)
@@ -2416,8 +2418,11 @@ local function initializeGui()
     -- Seção: Controle de Teleporte
     addSectionLabel("Controle de Teleporte")
     addButton("Teleportar para o Cursor/Toque", function()
-        teleportToMouse()
+        performClickTeleport() -- Chamando a função sem parâmetro para PC
     end, false)
+    addButton("Teleportar para Clique", function(state)
+        toggleClickTeleport(state)
+    end, true)
 
     -- Seção: Controles do Script
     addSectionLabel("Controles do Script")
@@ -2458,7 +2463,7 @@ local function initializeGui()
             print("Controle do personagem: " .. (characterControlActive and "Ativado" or "Desativado"))
         elseif input.KeyCode == Enum.KeyCode.F3 then
             playSound("5852470908")
-            teleportToMouse()
+            performClickTeleport() -- Teleporte com F3
         elseif input.KeyCode == Enum.KeyCode.Minus then
             playSound("5852470908")
             normalSpeed = math.max(10, normalSpeed - 5)
