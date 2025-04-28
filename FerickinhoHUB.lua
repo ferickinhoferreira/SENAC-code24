@@ -13,6 +13,7 @@ local Stats = game:GetService("Stats")
 local TeleportService = game:GetService("TeleportService")
 local SoundService = game:GetService("SoundService")
 local ContextActionService = game:GetService("ContextActionService")
+local HttpService = game:GetService("HttpService")
 
 -- Player Variables
 local LocalPlayer = Players.LocalPlayer
@@ -46,7 +47,7 @@ local espNPCEnabled = false
 local flashlightEnabled = false
 local fullbrightEnabled = false
 local infiniteJumpEnabled = false
-local clickTeleportEnabled = false -- Nova variável para teleporte por clique
+local clickTeleportEnabled = false
 local flySpeed = 50
 local flashlightRange = 60
 local espPlayerDistance = 500
@@ -94,12 +95,12 @@ local guiState = {
     espPlayerDistance = 500,
     espNPCDistance = 500,
     followDistance = 5,
-    clickTeleportEnabled = false -- Adicionado ao guiState
+    clickTeleportEnabled = false
 }
 
 -- Camera State Variables
 local cameraActive = false
-local cameraState = 0 -- 0: Desativado, 1: Free Cam Simples, 2: Free Cam com Cinematic Bars
+local cameraState = 0
 local cameraSpeed = 40
 local cameraFOV = 70
 local cameraYaw = 0
@@ -520,6 +521,97 @@ local function createGui()
     playersLabel.ZIndex = 9
     playersLabel.Parent = infoFrame
 
+    local timeLabel = Instance.new("TextLabel")
+    timeLabel.Size = UDim2.new(0, 80, 0, 20)
+    timeLabel.BackgroundTransparency = 1
+    timeLabel.Text = "Hora: 00:00"
+    timeLabel.TextColor3 = themeColors.Text
+    timeLabel.Font = Enum.Font.Gotham
+    timeLabel.TextSize = 12
+    timeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    timeLabel.ZIndex = 9
+    timeLabel.Parent = infoFrame
+
+    -- Função para atualizar a hora em tempo real
+    local function updateTime()
+        local currentTime = os.date("*t")
+        local hours = string.format("%02d", currentTime.hour)
+        local minutes = string.format("%02d", currentTime.min)
+        timeLabel.Text = "Hora: " .. hours .. ":" .. minutes
+    end
+
+    -- Atualizar a hora a cada frame
+    RunService.Heartbeat:Connect(function()
+        updateTime()
+    end)
+
+    -- Botão Dex Explorer na Top Bar como emoji de ferramenta
+    local dexButton = Instance.new("TextButton")
+    dexButton.Size = UDim2.new(0, 40, 0, 40)
+    dexButton.Position = UDim2.new(1, -80, 0, 5)
+    dexButton.BackgroundColor3 = themeColors.Button
+    dexButton.Text = "🛠️"
+    dexButton.TextColor3 = themeColors.Text
+    dexButton.Font = Enum.Font.GothamBold
+    dexButton.TextSize = 12
+    dexButton.ZIndex = 9
+    dexButton.Parent = topBar
+
+    local dexCorner = Instance.new("UICorner")
+    dexCorner.CornerRadius = UDim.new(0, 6)
+    dexCorner.Parent = dexButton
+
+    dexButton.MouseButton1Click:Connect(function()
+        playSound("5852470908")
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Dex.lua"))()
+        print("Dex Explorer: Executado")
+    end)
+
+    -- Botão de Fechar
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -120, 0, 5)
+    closeButton.BackgroundColor3 = themeColors.Button
+    closeButton.Text = "X"
+    closeButton.TextColor3 = themeColors.Text
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 16
+    closeButton.ZIndex = 9
+    closeButton.Parent = topBar
+
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 6)
+    closeCorner.Parent = closeButton
+
+    closeButton.MouseButton1Click:Connect(function()
+        playSound("5852470908")
+        terminateScript()
+    end)
+
+    -- Botão de Minimizar
+    minimizeButton = Instance.new("TextButton")
+    minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+    minimizeButton.Position = UDim2.new(1, -35, 0, 5)
+    minimizeButton.BackgroundColor3 = themeColors.Button
+    minimizeButton.Text = "−"
+    minimizeButton.TextColor3 = themeColors.Text
+    minimizeButton.Font = Enum.Font.GothamBold
+    minimizeButton.TextSize = 16
+    minimizeButton.ZIndex = 9
+    minimizeButton.Parent = topBar
+
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = UDim.new(0, 6)
+    minimizeCorner.Parent = minimizeButton
+
+    minimizeButton.MouseButton1Click:Connect(function()
+        playSound("5852470908")
+        isMinimized = true
+        guiState.isMinimized = true
+        mainFrame.Visible = false
+        floatingButton.Visible = true
+    end)
+
     local statsConnection = RunService.RenderStepped:Connect(function(deltaTime)
         local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue() or 0)
         pingLabel.Text = string.format(" PG: %d ms", ping)
@@ -556,34 +648,11 @@ local function createGui()
         if cameraActive then activeScripts = activeScripts + 1 end
         if slowMotionActive then activeScripts = activeScripts + 1 end
         if loopRotationEnabled then activeScripts = activeScripts + 1 end
-        if clickTeleportEnabled then activeScripts = activeScripts + 1 end -- Adicionado
+        if clickTeleportEnabled then activeScripts = activeScripts + 1 end
         scriptsLabel.Text = string.format("Scripts: %d", activeScripts)
         playersLabel.Text = string.format("Jogadores: %d", #Players:GetPlayers())
     end)
     table.insert(connections, statsConnection)
-
-    minimizeButton = Instance.new("TextButton")
-    minimizeButton.Size = UDim2.new(0, 30, 0, 30)
-    minimizeButton.Position = UDim2.new(1, -35, 0, 5)
-    minimizeButton.BackgroundColor3 = themeColors.Button
-    minimizeButton.Text = "−"
-    minimizeButton.TextColor3 = themeColors.Text
-    minimizeButton.Font = Enum.Font.GothamBold
-    minimizeButton.TextSize = 16
-    minimizeButton.ZIndex = 9
-    minimizeButton.Parent = topBar
-
-    local minimizeCorner = Instance.new("UICorner")
-    minimizeCorner.CornerRadius = UDim.new(0, 6)
-    minimizeCorner.Parent = minimizeButton
-
-    minimizeButton.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        isMinimized = true
-        guiState.isMinimized = true
-        mainFrame.Visible = false
-        floatingButton.Visible = true
-    end)
 
     searchBar = Instance.new("TextBox")
     searchBar.Size = UDim2.new(1, -20, 0, 30)
@@ -704,7 +773,6 @@ local function addButton(text, callback, isToggle)
         toggleCorner.Parent = toggleIndicator
         toggleIndicator.Parent = button
 
-        -- Caixa de Loop com TextLabel
         loopFrame = Instance.new("Frame")
         loopFrame.Size = UDim2.new(0, 50, 0, 20)
         loopFrame.Position = UDim2.new(1, -85, 0.5, -10)
@@ -729,7 +797,6 @@ local function addButton(text, callback, isToggle)
         loopLabelCorner.Parent = loopLabel
         loopLabel.Parent = loopFrame
 
-        -- Botão de Reset
         resetButton = Instance.new("TextButton")
         resetButton.Size = UDim2.new(0, 50, 0, 20)
         resetButton.Position = UDim2.new(1, -140, 0.5, -10)
@@ -843,7 +910,6 @@ local function addSlider(name, default, min, max, callback)
     sliderBoxCorner.Parent = sliderBox
     sliderBox.Parent = holder
 
-    -- Caixa de Loop com TextLabel
     local loopFrame = Instance.new("Frame")
     loopFrame.Size = UDim2.new(0, 50, 0, 20)
     loopFrame.Position = UDim2.new(0.67, 0, 0, 2)
@@ -868,7 +934,6 @@ local function addSlider(name, default, min, max, callback)
     loopLabelCorner.Parent = loopLabel
     loopLabel.Parent = loopFrame
 
-    -- Botão de Reset
     local resetButton = Instance.new("TextButton")
     resetButton.Size = UDim2.new(0, 50, 0, 20)
     resetButton.Position = UDim2.new(0.56, 0, 0, 2)
@@ -1041,10 +1106,9 @@ local function terminateScript()
     cameraState = 0
     slowMotionActive = false
     loopRotationEnabled = false
-    clickTeleportEnabled = false -- Adicionado
+    clickTeleportEnabled = false
     selectedFollowPlayer = nil
 
-    -- Cancelar todos os loops ativos
     for name, loop in pairs(activeLoops) do
         task.cancel(loop)
         activeLoops[name] = nil
@@ -1756,7 +1820,7 @@ local function reapplyGuiState(character)
     if guiState.loopRotationEnabled then
         loopRotationEnabled = true
     end
-    if guiState.clickTeleportEnabled then -- Adicionado
+    if guiState.clickTeleportEnabled then
         clickTeleportEnabled = true
     end
 
@@ -1814,8 +1878,7 @@ local function blockPlayerMovement(block)
         originalJumpPower = humanoid.JumpPower
         humanoid.WalkSpeed = 0
         humanoid.JumpPower = 0
-        humanoid.AutoRotate = false -- Impede rotação automática do personagem
-        -- Bloquear todas as ações de movimento
+        humanoid.AutoRotate = false
         ContextActionService:BindAction("BlockMovement", function()
             return Enum.ContextActionResult.Sink
         end, false,
@@ -1833,7 +1896,7 @@ local function blockPlayerMovement(block)
     else
         humanoid.WalkSpeed = originalWalkSpeed > 0 and originalWalkSpeed or guiState.walkSpeed
         humanoid.JumpPower = originalJumpPower > 0 and originalJumpPower or guiState.jumpPower
-        humanoid.AutoRotate = true -- Restaura rotação automática
+        humanoid.AutoRotate = true
         ContextActionService:UnbindAction("BlockMovement")
     end
 end
@@ -1862,12 +1925,11 @@ local function toggleInterface(hide)
             end
         end
 
-        -- Esconder elementos visuais do backpack sem desativar funcionalidade
         local coreGui = game:GetService("CoreGui")
-        local backpackGui = coreGui:FindFirstChild("RobloxGui") -- Alterado para RobloxGui, que contém o Backpack
+        local backpackGui = coreGui:FindFirstChild("RobloxGui")
         if backpackGui then
             for _, child in ipairs(backpackGui:GetDescendants()) do
-                if child:IsA("GuiObject") and child.Name ~= "ControlFrame" then -- Evita interferir em outros controles
+                if child:IsA("GuiObject") and child.Name ~= "ControlFrame" then
                     guiStates[child] = child.Visible
                     child.Visible = false
                 end
@@ -1894,7 +1956,6 @@ local function toggleInterface(hide)
             StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true)
             StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
             StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, true)
-            -- Forçar visibilidade dos itens do Backpack
             local coreGui = game:GetService("CoreGui")
             local backpackGui = coreGui:FindFirstChild("RobloxGui")
             if backpackGui then
@@ -1957,7 +2018,7 @@ local function toggleFreeCam(state)
         cameraYaw = math.deg(math.atan2(lookVector.X, lookVector.Z))
         cameraPitch = math.deg(math.asin(lookVector.Y))
 
-        blockPlayerMovement(true) -- Bloqueia movimento por padrão
+        blockPlayerMovement(true)
         setupMouse(true)
         toggleInterface(true)
 
@@ -2004,13 +2065,11 @@ local function toggleFreeCam(state)
             local position = cam.CFrame.Position
             local moveDirection = Vector3.new(0, 0, 0)
 
-            -- Movimento da câmera apenas, sem afetar o personagem
             local mouseDelta = UserInputService:GetMouseDelta()
             local yawDelta = mouseDelta.X * currentMouseSensitivity
             local pitchDelta = mouseDelta.Y * currentMouseSensitivity
 
             if loopRotationEnabled then
-                -- Rotação em loop ao redor do centro
                 local center = loopRotationCenter or (PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") and PlayerCharacter.HumanoidRootPart.Position)
                 if center then
                     local relativePos = position - center
@@ -2103,7 +2162,6 @@ local function performClickTeleport(position)
 
     local targetPosition
     if UserInputService.TouchEnabled and position then
-        -- Mobile: Usa Raycast para encontrar superfície
         local rayOrigin = Workspace.CurrentCamera:ViewportPointToRay(position.X, position.Y)
         local maxDistance = 1000000
         local raycastParams = RaycastParams.new()
@@ -2118,7 +2176,6 @@ local function performClickTeleport(position)
         end
         targetPosition = raycastResult.Position
     else
-        -- PC: Usa posição do mouse
         local mouse = LocalPlayer:GetMouse()
         if not mouse.Hit then
             warn("Erro: Posição do mouse não detectada.")
@@ -2127,7 +2184,6 @@ local function performClickTeleport(position)
         targetPosition = mouse.Hit.Position
     end
 
-    -- Ajustar altura para evitar ficar preso
     local safePosition = targetPosition + Vector3.new(0, 2.5, 0)
     rootPart.CFrame = CFrame.new(safePosition)
     playSound("5852470908")
@@ -2186,7 +2242,98 @@ local function initializeGui()
         PlayerCharacter = LocalPlayer.Character
     end
 
-    -- Seção: Modificações do Jogador
+    -- Seções organizadas em ordem alfabética
+    addSectionLabel("Administração")
+    addButton("CMD (TEST)", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source"))()
+        print("CMD (TEST): Executado")
+    end, false)
+    addButton("Fates Admin", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/fatesc/fates-admin/main/main.lua"))()
+        print("Fates Admin: Executado")
+    end, false)
+    addButton("Infinite Yield Scripts", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+        print("Infinite Yield Scripts: Executado")
+    end, false)
+    addButton("Nameless Admin", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/FilteringEnabled/NamelessAdmin/main/Source"))()
+        print("Nameless Admin: Executado")
+    end, false)
+    addButton("Proton 2 Free Admin", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Proton2Free.lua"))()
+        print("Proton 2 Free Admin: Executado")
+    end, false)
+    addButton("Proton Free Admin", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Free.lua"))()
+        print("Proton Free Admin: Executado")
+    end, false)
+    addButton("Reviz Admin V2", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/2tu3/Reviz-Admin-V2/main/RevizAdminV2"))()
+        print("Reviz Admin V2: Executado")
+    end, false)
+    addButton("Shattervast Admin", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Shattervast/Shattervast-Admin/main/source"))()
+        print("Shattervast Admin: Executado")
+    end, false)
+    addButton("SkyHub", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/main/SkyHub.txt"))()
+        print("SkyHub: Executado")
+    end, false)
+
+    addSectionLabel("Controle de Teleporte")
+    addButton("Teleportar para Clique", function(state)
+        toggleClickTeleport(state)
+    end, true)
+    addButton("Teleportar para o Cursor/Toque", function()
+        performClickTeleport()
+    end, false)
+
+    addSectionLabel("Espião")
+    addButton("Anti-AFK", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/KikoTheDev/Anti-AFK/main/AntiAFK.lua"))()
+        print("Anti-AFK: Executado")
+    end, false)
+    addButton("Dark Dex", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Babyhamsta/RBLX_Scripts/main/Universal/DarkDex.lua"))()
+        print("Dark Dex: Executado")
+    end, false)
+    addButton("ESP (Extra Sensory Perception)", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ic3w0lf22/Unnamed-ESP/master/UnnamedESP.lua"))()
+        print("ESP (Extra Sensory Perception): Executado")
+    end, false)
+    addButton("FPS Unlocker", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/linethan/fpsunlocker/main/fpsunlocker.lua"))()
+        print("FPS Unlocker: Executado")
+    end, false)
+    addButton("Script Dumper", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/MajinSupremacy/ScriptDumperV2/main/ScriptDumperV2"))()
+        print("Script Dumper: Executado")
+    end, false)
+    addButton("Sigma Spy (Level 7)", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/depthso/Sigma-Spy/refs/heads/main/Main.lua"))()
+        print("Sigma Spy (Level 7): Executado")
+    end, false)
+    addButton("Simple Spy Lite", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremestuffs/SimpleSpySource/master/SimpleSpy.lua"))()
+        print("Simple Spy Lite: Executado")
+    end, false)
+    addButton("Turtle-Spy", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ThatMG393/Turtle-Spy/main/source.lua"))()
+        print("Turtle-Spy: Executado")
+    end, false)
+    addButton("Universal Remote Spy V3", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ThatMG393/UniversalRemoteSpy/main/v3.lua"))()
+        print("Universal Remote Spy V3: Executado")
+    end, false)
+
+    addSectionLabel("Lista de Jogadores")
+    addSlider("Distância de Seguimento", 5, 1, 50, function(value)
+        followDistance = value
+        guiState.followDistance = value
+    end)
+    createPlayerList()
+
     addSectionLabel("Modificações do Jogador")
     addButton("Noclip", function(state)
         toggleNoclip(state)
@@ -2216,7 +2363,6 @@ local function initializeGui()
         toggleFly(state)
     end, true)
 
-    -- Seção: Modificações Visuais
     addSectionLabel("Modificações Visuais")
     addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
         flashlightRange = value
@@ -2242,98 +2388,50 @@ local function initializeGui()
     addButton("Fullbright", function(state)
         toggleFullbright(state)
     end, true)
-    -- Seção: Administração
-    addSectionLabel("Administração")
-    addButton("📌 Infinite Yield Scripts", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-        print("📌 Infinite Yield Scripts: Executado")
-    end, false)
-    addButton("Nameless Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/FilteringEnabled/NamelessAdmin/main/Source"))()
-        print("Nameless Admin: Executado")
-    end, false)
-    addButton("Fates Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/fatesc/fates-admin/main/main.lua"))()
-        print("Fates Admin: Executado")
-    end, false)
-    addButton("CMD (TEST)", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source"))()
-        print("CMD (TEST): Executado")
-    end, false)
-    addButton("Shattervast Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/Shattervast/Shattervast-Admin/main/source"))()
-        print("Shattervast Admin: Executado")
-    end, false)
-    addButton("Proton Free Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Free.lua"))()
-        print("Proton Free Admin: Executado")
-    end, false)
-    addButton("Proton 2 Free Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Proton2Free.lua"))()
-        print("Proton 2 Free Admin: Executado")
-    end, false)
-    addButton("Reviz Admin V2", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/2tu3/Reviz-Admin-V2/main/RevizAdminV2"))()
-        print("Reviz Admin V2: Executado")
-    end, false)
-    addButton("SkyHub", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/main/SkyHub.txt"))()
-        print("SkyHub: Executado")
-    end, false)
-    -- Seção: espião
-    addSectionLabel("Espião")
-    addButton("🕵️ Sigma Spy (Level 7)", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/depthso/Sigma-Spy/refs/heads/main/Main.lua"), "Sigma Spy")()
-        print("🕵️ Sigma Spy (Level 7): Executado")
-    end, false)
-    addButton("🕵️ Simple Spy Lite", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Simple%20Spy%20Lite.lua"))()
-        print("🕵️ Simple Spy Lite: Executado")
-    end, false)
-    -- Seção: Scripts de Jogos
+
     addSectionLabel("Scripts de Jogos")
-    addButton("🎯 Aimbot PC", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
-        print("🎯 Aimbot PC: Executado")
-    end, false)
-    addButton("🔫 Aimbot Mobile", function()
+    addButton("Aimbot Mobile", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Aimbot%20mobile.lua"))()
-        print("🔫 Aimbot Mobile: Executado")
+        print("Aimbot Mobile: Executado")
     end, false)
-    addButton("🕺 Animações de Movimento", function()
+    addButton("Aimbot PC", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
+        print("Aimbot PC: Executado")
+    end, false)
+    addButton("Animações de Movimento", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/anima%C3%A7%C3%B5es%20de%20movimento.lua"))()
-        print("🕺 Animações de Movimento: Executado")
+        print("Animações de Movimento: Executado")
     end, false)
-    addButton("⚔️ Arise Crossover", function()
+    addButton("Arise Crossover", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/perfectusmim1/script/refs/heads/main/crossover"))()
-        print("⚔️ Arise Crossover: Executado")
+        print("Arise Crossover: Executado")
     end, false)
-    addButton("🤖 Be NPC or Die", function()
+    addButton("Be NPC or Die", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Bac0nHck/Scripts/refs/heads/main/BeNpcOrDie"))()
-        print("🤖 Be NPC or Die: Script executado")
+        print("Be NPC or Die: Script executado")
     end, false)
-    addButton("🥏 Blade Ball", function()
+    addButton("Blade Ball", function()
         loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/79ab2d3174641622d317f9e234797acb.lua"))()
-        print("🥏 Blade Ball: Executado")
+        print("Blade Ball: Executado")
     end, false)
-    addButton("🏴‍☠️ Blox Fruits Auto Join + Tradução", function()
+    addButton("Blox Fruits Auto Join + Tradução", function()
         local Settings = {
-            JoinTeam = "Pirates"; -- Altere para "Marines" se quiser
-            Translator = true;
+            JoinTeam = "Pirates",
+            Translator = true
         }
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Trustmenotcondom/QTONYX/refs/heads/main/QuantumOnyx.lua"))()
-        print("🏴‍☠️ Blox Fruits: Script executado com configurações personalizadas")
+        print("Blox Fruits: Script executado com configurações personalizadas")
     end, false)
-    addButton("⚽ Blue Lock", function()
+    addButton("Blue Lock", function()
         loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/e1cfd93b113a79773d93251b61af1e2f.lua"))()
-        print("⚽ Blue Lock: Executado")
+        print("Blue Lock: Executado")
     end, false)
-    addButton("🐸 Brainrot Evolution", function()
+    addButton("Brainrot Evolution", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/BrainrotEvolution"))()
-        print("🐸 Brainrot Evolution: Executado")
+        print("Brainrot Evolution: Executado")
     end, false)
-    addButton("💰 Daily Reward Hack", function()
-        local Coins = 99999 -- Altere aqui a quantidade desejada de moedas
+    addButton("Daily Reward Hack", function()
+        local Coins = 99999
         local args = {
             [1] = {
                 ["Jackpot_Chance"] = "600",
@@ -2349,66 +2447,63 @@ local function initializeGui()
             }
         }
         game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
-        print("💰 Recompensa diária hackeada com " .. Coins .. " moedas!")
+        print("Recompensa diária hackeada com " .. Coins .. " moedas!")
     end, false)
-    addButton("🧟 Dead Rails", function()
+    addButton("Dead Rails", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DeadRails"))()
-        print("🧟 Dead Rails: Executado")
+        print("Dead Rails: Executado")
     end, false)
-    addButton("🚪 Doors | Blackking + BobHub", function()
+    addButton("Doors | Blackking + BobHub", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/KINGHUB01/BlackKing-obf/main/Doors%20Blackking%20And%20BobHub"))()
-        print("🚪 Doors Blackking + BobHub: Script executado")
+        print("Doors Blackking + BobHub: Script executado")
     end, false)
-    addButton("🧱 Doors | DarkDoorsKing Rank", function()
+    addButton("Doors | DarkDoorsKing Rank", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/DarkDoorsKing/Clinet/main/DoorsRank"))()
-        print("🧱 Doors DarkDoorsKing Rank: Script executado")
+        print("Doors DarkDoorsKing Rank: Script executado")
     end, false)
-    addButton("🥀 Hunters", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/Hunters"))()  
-        print("🥀 Hunters: Executado")
-    end, false)
-    addButton("😂 Meme Sea", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ZaqueHub/ShinyHub-MMSea/main/MEME%20SEA%20PROTECT.txt"))()
-        print("😂 Meme Sea: Executado")
-    end, false)
-    addButton("🪓 MM2 (completo)", function()
-        loadstring(game:HttpGet('https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring'))()
-        print("🪓 MM2 (completo): Executado")
-    end, false)
-    addButton("🗡️ MM2 (beta)", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/MM2.lua"))()
-        print("🗡️ MM2 (beta): Executado")
-    end, false)
-    addButton("🚗 Race RNG Script", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/RaceRNG"))()
-        print("🚗 Race RNG Script: Executado")
-    end, false)
-    addButton("📍 Teleportar para o Spawn", function()
-        local player = game.Players.LocalPlayer
-        local char = player.Character or player.CharacterAdded:Wait()
-        local hrp = char:WaitForChild("HumanoidRootPart")
-        local spawnLocation = workspace:WaitForChild("Spawns"):WaitForChild("SpawnLocation")
-        hrp.CFrame = spawnLocation.CFrame
-        print("📍 Teleporte realizado para o Spawn!")
-    end, false)
-    addButton("👽 Zombie Attack", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
-        print("👽 Zombie Attack: Executado")
-    end, false)
-    -- Novos botões adicionados
-    addButton("🪄 Wizard West", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/WizardWest"))()
-        print("🪄 Wizard West: Executado")
-    end, false)
-    addButton("🧌 Dungeon Leveling", function()
+    addButton("Dungeon Leveling", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DungeonLeveling"))()
-        print("🧌 Dungeon Leveling: Executado")
+        print("Dungeon Leveling: Executado")
     end, false)
-    addButton("🐟 Fisch", function()
+    addButton("Fisch", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/FischModded"))()
-        print("🐟 Fisch: Executado")
+        print("Fisch: Executado")
     end, false)
-    addButton("🏹 Muder VS Xeriff", function()
+    addButton("Hunters", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/Hunters"))()
+        print("Hunters: Executado")
+    end, false)
+    addButton("Loop Recompensa Desenvolvedor", function()
+        task.spawn(function()
+            while wait() do
+                for i = 1, 10 do
+                    game:GetService("ReplicatedStorage").Packages._Index:FindFirstChild("sleitnick_knit@1.7.0").knit.Services.RewardService.RF.RequestPlayWithDeveloperAward:InvokeServer()
+                end
+            end
+        end)
+        print("Loop Recompensa Desenvolvedor: Iniciado")
+    end, false)
+    addButton("Luarmor Script", function()
+        loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/730854e5b6499ee91deb1080e8e12ae3.lua"))()
+        print("Luarmor Script: Executado")
+    end, false)
+    addButton("Meme Sea", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ZaqueHub/ShinyHub-MMSea/main/MEME%20SEA%20PROTECT.txt"))()
+        print("Meme Sea: Executado")
+    end, false)
+    addButton("MindsFall", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/MindsFall"))()
+        print("MindsFall: Executado")
+    end, false)
+    addButton("MM2 (beta)", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/MM2.lua"))()
+        print("MM2 (beta): Executado")
+    end, false)
+    addButton("MM2 (completo)", function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring'))()
+        print("MM2 (completo): Executado")
+    end, false)
+    addButton("Muder VS Xeriff", function()
         local Coins = 99999
         local args = {
             [1] = {
@@ -2427,54 +2522,33 @@ local function initializeGui()
         game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
         print("Hack Recompensa Diária: Executado com " .. Coins .. " moedas")
     end, false)
-    addButton("Luarmor Script", function()
-        loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/730854e5b6499ee91deb1080e8e12ae3.lua"))()
-        print("Luarmor Script: Executado")
+    addButton("Prision Life", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/TheMugenKing/Prison-Life/refs/heads/main/Update", true))()
+        print("Prision Life: Executado")
     end, false)
-    addButton("Loop Recompensa Desenvolvedor", function()
-        task.spawn(function()
-            while wait() do
-                for i = 1, 10 do
-                    game:GetService("ReplicatedStorage").Packages._Index:FindFirstChild("sleitnick_knit@1.7.0").knit.Services.RewardService.RF.RequestPlayWithDeveloperAward:InvokeServer()
-                end
-            end
-        end)
-        print("Loop Recompensa Desenvolvedor: Iniciado")
-    end, false)
-    addButton("💨 R.E.P.O", function()
+    addButton("R.E.P.O", function()
         loadstring(game:HttpGet("https://rawscripts.net/raw/NEW-E.R.P.O.-OP-script-SOURCE-FREE-33663"))()
-        print("💨 R.E.P.O: Executado")
+        print("R.E.P.O: Executado")
     end, false)
-    addButton("💀 MindsFall", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/MindsFall"))()
-        print("💀 MindsFall: Executado")
+    addButton("Race RNG Script", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/RaceRNG"))()
+        print("Race RNG Script: Executado")
     end, false)
-    addButton("🔗 Prision Life", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/TheMugenKing/Prison-Life/refs/heads/main/Update",true))()
-        print("🔗 Prision Life: Executado")
+    addButton("Teleportar para o Spawn", function()
+        local player = game.Players.LocalPlayer
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        local spawnLocation = workspace:WaitForChild("Spawns"):WaitForChild("SpawnLocation")
+        hrp.CFrame = spawnLocation.CFrame
+        print("Teleportado para o Spawn!")
     end, false)
-
-    -- Seção: Lista de Jogadores
-    addSectionLabel("Lista de Jogadores")
-    addSlider("Distância de Seguimento", 5, 1, 50, function(value)
-        followDistance = value
-        guiState.followDistance = value
-    end)
-    createPlayerList()
-
-    -- Seção: Controle de Teleporte
-    addSectionLabel("Controle de Teleporte")
-    addButton("Teleportar para o Cursor/Toque", function()
-        performClickTeleport() -- Chamando a função sem parâmetro para PC
+    addButton("Wizard West", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/WizardWest"))()
+        print("Wizard West: Executado")
     end, false)
-    addButton("Teleportar para Clique", function(state)
-        toggleClickTeleport(state)
-    end, true)
-
-    -- Seção: Controles do Script
-    addSectionLabel("Controles do Script")
-    addButton("Encerrar tudo", function()
-        terminateScript()
+    addButton("Zombie Attack", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
+        print("Zombie Attack: Executado")
     end, false)
 
     local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -2486,77 +2560,231 @@ local function initializeGui()
             terminateScript()
         elseif input.KeyCode == Enum.KeyCode.F1 then
             playSound("5852470908")
-            isMinimized = not isMinimized
-            guiState.isMinimized = isMinimized
-            if isMinimized then
-                mainFrame.Visible = false
-                floatingButton.Visible = true
-            else
-                mainFrame.Visible = true
-                floatingButton.Visible = false
-                adjustGuiForDevice()
+			            if mainFrame then
+                isMinimized = not isMinimized
+                guiState.isMinimized = isMinimized
+                mainFrame.Visible = not isMinimized
+                floatingButton.Visible = isMinimized
+                playSound("5852470908")
             end
         elseif input.KeyCode == Enum.KeyCode.F2 then
-            playSound("5852470908")
-            local newState = (cameraState + 1) % 3
-            toggleFreeCam(newState)
-        elseif input.KeyCode == Enum.KeyCode.T then
-            playSound("5852470908")
-            toggleSlowMotion(not slowMotionActive)
-        elseif input.KeyCode == Enum.KeyCode.Y and cameraActive then
-            playSound("5852470908")
-            characterControlActive = not characterControlActive
-            blockPlayerMovement(not characterControlActive)
-            print("Controle do personagem: " .. (characterControlActive and "Ativado" or "Desativado"))
-        elseif input.KeyCode == Enum.KeyCode.F3 then
-            playSound("5852470908")
-            performClickTeleport() -- Teleporte com F3
-        elseif input.KeyCode == Enum.KeyCode.Minus then
-            playSound("5852470908")
-            normalSpeed = math.max(10, normalSpeed - 5)
-            if not slowMotionActive then
-                currentSpeed = normalSpeed
-            end
-            print("Velocidade da câmera: " .. normalSpeed)
-        elseif input.KeyCode == Enum.KeyCode.Equals or input.KeyCode == Enum.KeyCode.Plus then
-            playSound("5852470908")
-            normalSpeed = math.min(200, normalSpeed + 5)
-            if not slowMotionActive then
-                currentSpeed = normalSpeed
-            end
-            print("Velocidade da câmera: " .. normalSpeed)
-        elseif input.KeyCode == Enum.KeyCode.R and cameraActive then
-            playSound("5852470908")
-            toggleLoopRotation(not loopRotationEnabled)
-        elseif input.KeyCode == Enum.KeyCode.Home then
-            playSound("5852470908")
             toggleMouseLock()
         end
     end)
     table.insert(connections, inputConnection)
 
-    -- Handle character respawn
-    LocalPlayer.CharacterAdded:Connect(reapplyGuiState)
-
-    -- Handle teleports
-    local lastPlaceId = game.PlaceId
-    local teleportConnection = TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
-        if player == LocalPlayer then
-            screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-            reapplyGuiState(LocalPlayer.Character)
-        end
+    LocalPlayer.CharacterAdded:Connect(function(character)
+        reapplyGuiState(character)
     end)
-    table.insert(connections, teleportConnection)
 
-    local placeConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if game.PlaceId ~= lastPlaceId then
-            lastPlaceId = game.PlaceId
-            screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-            reapplyGuiState(LocalPlayer.Character)
-        end
-    end)
-    table.insert(connections, placeConnection)
+    -- Notificação de inicialização
+    StarterGui:SetCore("SendNotification", {
+        Title = "Ferickinho Hub",
+        Text = "Bem-vindo ao Ferickinho Final Hub! Pressione F1 para abrir/fechar o menu, Delete para encerrar.",
+        Duration = 10
+    })
+
+    print("Ferickinho Final Hub: Inicializado com sucesso")
 end
 
--- Initialize the GUI
+-- Inicializar o GUI
 initializeGui()
+
+-- Função para carregar scripts adicionais automaticamente com base no jogo
+local function loadGameSpecificScript()
+    local gameId = game.PlaceId
+    local gameScripts = {
+        [278822937] = function() -- MM2
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring"))()
+            print("MM2 (completo): Carregado automaticamente")
+        end,
+        [621129760] = function() -- Blox Fruits
+            local Settings = {
+                JoinTeam = "Pirates",
+                Translator = true
+            }
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Trustmenotcondom/QTONYX/refs/heads/main/QuantumOnyx.lua"))()
+            print("Blox Fruits: Carregado automaticamente")
+        end,
+        [2317712696] = function() -- Zombie Attack
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
+            print("Zombie Attack: Carregado automaticamente")
+        end
+        -- Adicione mais IDs de jogos e scripts conforme necessário
+    }
+
+    if gameScripts[gameId] then
+        gameScripts[gameId]()
+    end
+end
+
+-- Carregar script específico do jogo, se aplicável
+loadGameSpecificScript()
+
+-- Configurar reconexão em caso de desconexão
+game:BindToClose(function()
+    terminateScript()
+end)
+
+-- Monitorar mudanças no personagem
+LocalPlayer.CharacterRemoving:Connect(function()
+    print("Personagem removido, aguardando novo personagem...")
+end)
+
+-- Função para salvar configurações (opcional)
+local function saveSettings()
+    local settings = {
+        walkSpeed = guiState.walkSpeed,
+        jumpPower = guiState.jumpPower,
+        flySpeed = guiState.flySpeed,
+        flashlightRange = guiState.flashlightRange,
+        espPlayerDistance = guiState.espPlayerDistance,
+        espNPCDistance = guiState.espNPCDistance,
+        followDistance = guiState.followDistance,
+        isMinimized = guiState.isMinimized,
+        flyEnabled = guiState.flyEnabled,
+        noclipEnabled = guiState.noclipEnabled,
+        espPlayerEnabled = guiState.espPlayerEnabled,
+        espNPCEnabled = guiState.espNPCEnabled,
+        flashlightEnabled = guiState.flashlightEnabled,
+        fullbrightEnabled = guiState.fullbrightEnabled,
+        infiniteJumpEnabled = guiState.infiniteJumpEnabled,
+        clickTeleportEnabled = guiState.clickTeleportEnabled
+    }
+    local success, err = pcall(function()
+        local json = HttpService:JSONEncode(settings)
+        writefile("FerickinhoHubSettings.json", json)
+        print("Configurações salvas com sucesso")
+    end)
+    if not success then
+        warn("Erro ao salvar configurações: " .. tostring(err))
+    end
+end
+
+-- Função para carregar configurações (opcional)
+local function loadSettings()
+    local success, result = pcall(function()
+        if isfile("FerickinhoHubSettings.json") then
+            local json = readfile("FerickinhoHubSettings.json")
+            return HttpService:JSONDecode(json)
+        end
+        return nil
+    end)
+    if success and result then
+        for key, value in pairs(result) do
+            guiState[key] = value
+        end
+        reapplyGuiState(PlayerCharacter)
+        print("Configurações carregadas com sucesso")
+    elseif not success then
+        warn("Erro ao carregar configurações: " .. tostring(result))
+    end
+end
+
+-- Carregar configurações salvas
+loadSettings()
+
+-- Salvar configurações periodicamente
+spawn(function()
+    while wait(60) do
+        saveSettings()
+    end
+end)
+
+-- Função para atualizar a interface com base no estado
+local function updateGuiState()
+    for _, child in ipairs(scrollingFrame:GetChildren()) do
+        if child:IsA("TextButton") and child:FindFirstChildOfClass("Frame") then
+            local toggleIndicator = child:FindFirstChildOfClass("Frame")
+            local text = child.Text
+            if text == "Voar" then
+                toggleIndicator.BackgroundColor3 = guiState.flyEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            elseif text == "Noclip" then
+                toggleIndicator.BackgroundColor3 = guiState.noclipEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            elseif text == "Esp Player" then
+                toggleIndicator.BackgroundColor3 = guiState.espPlayerEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            elseif text == "Esp NPC" then
+                toggleIndicator.BackgroundColor3 = guiState.espNPCEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            elseif text == "Flashlight" then
+                toggleIndicator.BackgroundColor3 = guiState.flashlightEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            elseif text == "Fullbright" then
+                toggleIndicator.BackgroundColor3 = guiState.fullbrightEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            elseif text == "Pulo Infinito" then
+                toggleIndicator.BackgroundColor3 = guiState.infiniteJumpEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            elseif text == "Teleportar para Clique" then
+                toggleIndicator.BackgroundColor3 = guiState.clickTeleportEnabled and themeColors.ToggleOn or themeColors.ToggleOff
+            end
+        end
+    end
+end
+
+-- Atualizar interface ao inicializar
+updateGuiState()
+
+-- Adicionar botão para salvar configurações manualmente
+addSectionLabel("Configurações")
+addButton("Salvar Configurações", function()
+    saveSettings()
+    StarterGui:SetCore("SendNotification", {
+        Title = "Configurações",
+        Text = "Configurações salvas com sucesso!",
+        Duration = 5
+    })
+end, false)
+
+-- Adicionar botão para carregar configurações manualmente
+addButton("Carregar Configurações", function()
+    loadSettings()
+    updateGuiState()
+    StarterGui:SetCore("SendNotification", {
+        Title = "Configurações",
+        Text = "Configurações carregadas com sucesso!",
+        Duration = 5
+    })
+end, false)
+
+-- Adicionar controles de câmera
+addSectionLabel("Controle de Câmera")
+addButton("Free Cam (Simples)", function()
+    toggleFreeCam(cameraState == 1 and 0 or 1)
+end, true)
+addButton("Free Cam (Cinemática)", function()
+    toggleFreeCam(cameraState == 2 and 0 or 2)
+end, true)
+addButton("Rotação em Loop", function(state)
+    toggleLoopRotation(state)
+end, true)
+addSlider("Velocidade da Câmera", 40, 10, 100, function(value)
+    cameraSpeed = value
+    currentSpeed = slowMotionActive and slowMotionSpeed or value
+    guiState.cameraSpeed = value
+end)
+addSlider("Campo de Visão (FOV)", 70, 30, 120, function(value)
+    cameraFOV = value
+    guiState.cameraFOV = value
+    if cameraActive then
+        Workspace.CurrentCamera.FieldOfView = value
+    end
+end)
+addSlider("Sensibilidade do Mouse", 15, 5, 50, function(value)
+    mouseSensitivity = value / 100
+    currentMouseSensitivity = slowMotionActive and (value / 100) * 0.5 or value / 100
+    guiState.mouseSensitivity = value / 100
+end)
+addButton("Slow Motion", function(state)
+    toggleSlowMotion(state)
+end, true)
+
+-- Adicionar botão para resetar todas as configurações
+addButton("Resetar Tudo", function()
+    terminateScript()
+    task.wait(0.5)
+    initializeGui()
+    StarterGui:SetCore("SendNotification", {
+        Title = "Reset",
+        Text = "Todas as configurações foram resetadas!",
+        Duration = 5
+    })
+end, false)
+
+print("Ferickinho Final Hub: Configuração completa")
