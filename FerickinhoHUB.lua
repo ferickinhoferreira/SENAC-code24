@@ -1,7 +1,6 @@
 -- Ferickinho Hub, criado para ajudar as pessoas (Made By Ferick)
 
 -- Services
-local activeLoops = {}
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -27,19 +26,7 @@ end)
 
 -- State Variables
 local connections = {}
-local screenGui = nil
-local mainFrame = nil
-local scrollingFrame = nil
-local playerListFrame = nil
-local topBar = nil
-local searchBar = nil
-local minimizeButton = nil
-local floatingButton = nil
-local uiScale = nil
-local introFrame = nil
-local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-local isMinimized = false
-local mouseLocked = true
+local activeLoops = {}
 local flyEnabled = false
 local noclipEnabled = false
 local espPlayerEnabled = false
@@ -80,7 +67,6 @@ local defaultSettings = {
     EspNPCDistance = 500
 }
 local guiState = {
-    isMinimized = false,
     flyEnabled = false,
     noclipEnabled = false,
     espPlayerEnabled = false,
@@ -116,7 +102,6 @@ local topCinematicBar = nil
 local bottomCinematicBar = nil
 local interfaceHidden = false
 local guiStates = {}
-local mainFrameVisibleBeforeCamera = true
 local characterControlActive = false
 local slowMotionActive = false
 local normalSpeed = 40
@@ -137,19 +122,6 @@ guiState.cameraFOV = 70
 guiState.mouseSensitivity = 0.15
 guiState.slowMotionActive = false
 guiState.loopRotationEnabled = false
-
--- Theme Variables
-local themeColors = {
-    Background = Color3.fromRGB(30, 30, 30),
-    TopBar = Color3.fromRGB(20, 20, 20),
-    Button = Color3.fromRGB(40, 40, 40),
-    Text = Color3.fromRGB(255, 255, 255),
-    Accent = Color3.fromRGB(255, 0, 0),
-    ToggleOn = Color3.fromRGB(0, 255, 0),
-    ToggleOff = Color3.fromRGB(255, 0, 0),
-    SearchBar = Color3.fromRGB(50, 50, 50),
-    Selected = Color3.fromRGB(60, 60, 60)
-}
 
 -- Sound Instances
 local function playSound(soundId)
@@ -173,924 +145,10 @@ local function disconnectAll()
     connections = {}
 end
 
--- Function to Adjust GUI for Responsiveness
-local function adjustGuiForDevice()
-    local screenSize = Workspace.CurrentCamera.ViewportSize
-    local aspectRatio = screenSize.X / screenSize.Y
-    local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-
-    local scaleFactor = isMobile and 0.7 or 1
-    if aspectRatio < 1 then
-        scaleFactor = scaleFactor * 0.8
-    end
-
-    uiScale.Scale = scaleFactor
-    mainFrame.Position = isMobile and UDim2.new(0.1, 0, 0.1, 0) or UDim2.new(0.35, 0, 0.25, 0)
-    mainFrame.Size = isMobile and UDim2.new(0.8, 0, 0.7, 0) or UDim2.new(0.3, 0, 0.5, 0)
-end
-
--- Function to Create the Floating Button
-local function createFloatingButton()
-    floatingButton = Instance.new("TextButton")
-    floatingButton.Size = UDim2.new(0, 80, 0, 80)
-    floatingButton.Position = UDim2.new(0.9, -90, 0.9, -90)
-    floatingButton.BackgroundColor3 = themeColors.Button
-    floatingButton.Text = "FERICKINHO"
-    floatingButton.TextColor3 = themeColors.Text
-    floatingButton.Font = Enum.Font.GothamBold
-    floatingButton.TextSize = 10
-    floatingButton.TextScaled = true
-    floatingButton.TextWrapped = true
-    floatingButton.ZIndex = 10
-    floatingButton.Visible = false
-    floatingButton.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = floatingButton
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = themeColors.Accent
-    stroke.Thickness = 2
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.Parent = floatingButton
-
-    local dragging = false
-    local dragStartPos = nil
-    local buttonStartPos = nil
-
-    local dragConnection1 = floatingButton.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStartPos = Vector2.new(input.Position.X, input.Position.Y)
-            buttonStartPos = Vector2.new(floatingButton.AbsolutePosition.X, floatingButton.AbsolutePosition.Y)
-        end
-    end)
-    table.insert(connections, dragConnection1)
-
-    local dragConnection2 = floatingButton.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-            dragStartPos = nil
-            buttonStartPos = nil
-        end
-    end)
-    table.insert(connections, dragConnection2)
-
-    local dragConnection3 = UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local screenSize = Workspace.CurrentCamera.ViewportSize
-            local currentPos = Vector2.new(input.Position.X, input.Position.Y)
-            local delta = currentPos - dragStartPos
-            local newPos = buttonStartPos + delta
-
-            newPos = Vector2.new(
-                math.clamp(newPos.X, 10, screenSize.X - 90),
-                math.clamp(newPos.Y, 10, screenSize.Y - 90)
-            )
-
-            floatingButton.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
-        end
-    end)
-    table.insert(connections, dragConnection3)
-
-    floatingButton.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        isMinimized = false
-        guiState.isMinimized = false
-        mainFrame.Visible = true
-        floatingButton.Visible = false
-        adjustGuiForDevice()
-    end)
-end
-
--- Function to Create the New Intro Screen
-local function createIntroScreen()
-    introFrame = Instance.new("Frame")
-    introFrame.Size = UDim2.new(0.4, 0, 0.3, 0)
-    introFrame.Position = UDim2.new(0.3, 0, 0.35, 0)
-    introFrame.BackgroundColor3 = themeColors.Background
-    introFrame.BackgroundTransparency = 1
-    introFrame.ZIndex = 100
-    introFrame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = introFrame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = themeColors.Accent
-    stroke.Thickness = 2
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.Transparency = 1
-    stroke.Parent = introFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.8, 0, 0.3, 0)
-    title.Position = UDim2.new(0.1, 0, 0.1, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "Ferickinho Final Hub"
-    title.TextColor3 = themeColors.Text
-    title.TextTransparency = 1
-    title.Font = Enum.Font.GothamBlack
-    title.TextSize = 24
-    title.TextScaled = true
-    title.TextWrapped = true
-    title.ZIndex = 101
-    title.Parent = introFrame
-
-    local description = Instance.new("TextLabel")
-    description.Size = UDim2.new(0.8, 0, 0.3, 0)
-    description.Position = UDim2.new(0.1, 0, 0.4, 0)
-    description.BackgroundTransparency = 1
-    description.Text = "Bem-vindo ao seu hub de modificações!"
-    description.TextColor3 = themeColors.Text
-    description.TextTransparency = 1
-    description.Font = Enum.Font.Gotham
-    description.TextSize = 16
-    description.TextScaled = true
-    description.TextWrapped = true
-    description.ZIndex = 101
-    description.Parent = introFrame
-
-    local enterButton = Instance.new("TextButton")
-    enterButton.Size = UDim2.new(0.3, 0, 0.2, 0)
-    enterButton.Position = UDim2.new(0.35, 0, 0.75, 0)
-    enterButton.BackgroundColor3 = themeColors.Button
-    enterButton.BackgroundTransparency = 1
-    enterButton.Text = "Entrar"
-    enterButton.TextColor3 = themeColors.Text
-    enterButton.TextTransparency = 1
-    enterButton.Font = Enum.Font.GothamBold
-    enterButton.TextSize = 14
-    enterButton.ZIndex = 101
-    enterButton.Parent = introFrame
-
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 6)
-    buttonCorner.Parent = enterButton
-
-    local buttonStroke = Instance.new("UIStroke")
-    buttonStroke.Color = themeColors.Accent
-    buttonStroke.Thickness = 1
-    buttonStroke.Transparency = 1
-    buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    buttonStroke.Parent = enterButton
-
-    -- Intro Sounds
-    local wooshSound = Instance.new("Sound")
-    wooshSound.SoundId = "rbxassetid://14006215368"
-    wooshSound.Volume = 1.0
-    wooshSound.Parent = introFrame
-    wooshSound:Play()
-
-    local backgroundSound = Instance.new("Sound")
-    backgroundSound.SoundId = "rbxassetid://6112625298"
-    backgroundSound.Volume = 1.0
-    backgroundSound.Looped = false
-    backgroundSound.Parent = introFrame
-    backgroundSound:Play()
-
-    -- Animations
-    local function playIntroAnimations()
-        TweenService:Create(introFrame, tweenInfo, {BackgroundTransparency = 0}):Play()
-        TweenService:Create(stroke, tweenInfo, {Transparency = 0}):Play()
-        TweenService:Create(title, tweenInfo, {TextTransparency = 0, Position = UDim2.new(0.1, 0, 0.1, 0)}):Play()
-        TweenService:Create(description, tweenInfo, {TextTransparency = 0, Position = UDim2.new(0.1, 0, 0.4, 0)}):Play()
-        TweenService:Create(enterButton, tweenInfo, {BackgroundTransparency = 0, TextTransparency = 0}):Play()
-        TweenService:Create(buttonStroke, tweenInfo, {Transparency = 0}):Play()
-    end
-
-    local function closeIntro()
-        wooshSound:Stop()
-        backgroundSound:Stop()
-        TweenService:Create(introFrame, tweenInfo, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(stroke, tweenInfo, {Transparency = 1}):Play()
-        TweenService:Create(title, tweenInfo, {TextTransparency = 1, Position = UDim2.new(0.1, 0, 0.05, 0)}):Play()
-        TweenService:Create(description, tweenInfo, {TextTransparency = 1, Position = UDim2.new(0.1, 0, 0.45, 0)}):Play()
-        TweenService:Create(enterButton, tweenInfo, {BackgroundTransparency = 1, TextTransparency = 1}):Play()
-        TweenService:Create(buttonStroke, tweenInfo, {Transparency = 1}):Play()
-        task.delay(tweenInfo.Time, function()
-            if introFrame then
-                wooshSound:Destroy()
-                backgroundSound:Destroy()
-                introFrame:Destroy()
-                introFrame = nil
-                mainFrame.Visible = not guiState.isMinimized
-                floatingButton.Visible = guiState.isMinimized
-            end
-        end)
-    end
-
-    enterButton.MouseEnter:Connect(function()
-        TweenService:Create(enterButton, tweenInfo, {BackgroundColor3 = themeColors.Accent}):Play()
-        TweenService:Create(buttonStroke, tweenInfo, {Color = themeColors.Text}):Play()
-    end)
-
-    enterButton.MouseLeave:Connect(function()
-        TweenService:Create(enterButton, tweenInfo, {BackgroundColor3 = themeColors.Button}):Play()
-        TweenService:Create(buttonStroke, tweenInfo, {Color = themeColors.Accent}):Play()
-    end)
-
-    enterButton.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        closeIntro()
-    end)
-
-    title.Position = UDim2.new(0.1, 0, 0.05, 0)
-    description.Position = UDim2.new(0.1, 0, 0.45, 0)
-    playIntroAnimations()
-
-    task.delay(5, function()
-        if introFrame then
-            closeIntro()
-        end
-    end)
-end
-
--- Function to Create the GUI
-local function createGui()
-    screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "FerickinhoHubGui"
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-    uiScale = Instance.new("UIScale")
-    uiScale.Parent = screenGui
-
-    mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0.3, 0, 0.5, 0)
-    mainFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
-    mainFrame.BackgroundColor3 = themeColors.Background
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    mainFrame.Visible = false
-    mainFrame.ZIndex = 5
-    mainFrame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = mainFrame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = themeColors.Accent
-    stroke.Thickness = 2
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.Parent = mainFrame
-
-    topBar = Instance.new("Frame")
-    topBar.Size = UDim2.new(1, 0, 0, 60)
-    topBar.BackgroundColor3 = themeColors.TopBar
-    topBar.BorderSizePixel = 0
-    topBar.ZIndex = 8
-    topBar.Parent = mainFrame
-
-    local topBarCorner = Instance.new("UICorner")
-    topBarCorner.CornerRadius = UDim.new(0, 10)
-    topBarCorner.Parent = topBar
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.6, 0, 0, 20)
-    title.Position = UDim2.new(0.2, 0, 0, 5)
-    title.BackgroundTransparency = 1
-    title.Text = "Ferickinho Final Hub"
-    title.TextColor3 = themeColors.Text
-    title.Font = Enum.Font.GothamBlack
-    title.TextSize = 18
-    title.TextXAlignment = Enum.TextXAlignment.Center
-    title.ZIndex = 9
-    title.Parent = topBar
-
-    local infoFrame = Instance.new("Frame")
-    infoFrame.Size = UDim2.new(1, -20, 0, 20)
-    infoFrame.Position = UDim2.new(0, 10, 0, 30)
-    infoFrame.BackgroundTransparency = 1
-    infoFrame.ZIndex = 9
-    infoFrame.Parent = topBar
-
-    local infoLayout = Instance.new("UIListLayout")
-    infoLayout.FillDirection = Enum.FillDirection.Horizontal
-    infoLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    infoLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    infoLayout.Padding = UDim.new(0, 10)
-    infoLayout.Parent = infoFrame
-
-    local pingLabel = Instance.new("TextLabel")
-    pingLabel.Size = UDim2.new(0, 80, 0, 20)
-    pingLabel.BackgroundTransparency = 1
-    pingLabel.Text = "Ping: 0 ms"
-    pingLabel.TextColor3 = themeColors.Text
-    pingLabel.Font = Enum.Font.Gotham
-    pingLabel.TextSize = 12
-    pingLabel.TextXAlignment = Enum.TextXAlignment.Left
-    pingLabel.ZIndex = 9
-    pingLabel.Parent = infoFrame
-
-    local fpsLabel = Instance.new("TextLabel")
-    fpsLabel.Size = UDim2.new(0, 80, 0, 20)
-    fpsLabel.BackgroundTransparency = 1
-    fpsLabel.Text = "FPS: 0"
-    fpsLabel.TextColor3 = themeColors.Text
-    fpsLabel.Font = Enum.Font.Gotham
-    fpsLabel.TextSize = 12
-    fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    fpsLabel.ZIndex = 9
-    fpsLabel.Parent = infoFrame
-
-    local scriptsLabel = Instance.new("TextLabel")
-    scriptsLabel.Size = UDim2.new(0, 80, 0, 20)
-    scriptsLabel.BackgroundTransparency = 1
-    scriptsLabel.Text = "Scripts: 0"
-    scriptsLabel.TextColor3 = themeColors.Text
-    scriptsLabel.Font = Enum.Font.Gotham
-    scriptsLabel.TextSize = 12
-    scriptsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    scriptsLabel.ZIndex = 9
-    scriptsLabel.Parent = infoFrame
-
-    local playersLabel = Instance.new("TextLabel")
-    playersLabel.Size = UDim2.new(0, 80, 0, 20)
-    playersLabel.BackgroundTransparency = 1
-    playersLabel.Text = "Jogadores: 0"
-    playersLabel.TextColor3 = themeColors.Text
-    playersLabel.Font = Enum.Font.Gotham
-    playersLabel.TextSize = 12
-    playersLabel.TextXAlignment = Enum.TextXAlignment.Left
-    playersLabel.ZIndex = 9
-    playersLabel.Parent = infoFrame
-
-    local timeLabel = Instance.new("TextLabel")
-    timeLabel.Size = UDim2.new(0, 80, 0, 20)
-    timeLabel.BackgroundTransparency = 1
-    timeLabel.Text = "Hora: 00:00"
-    timeLabel.TextColor3 = themeColors.Text
-    timeLabel.Font = Enum.Font.Gotham
-    timeLabel.TextSize = 12
-    timeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    timeLabel.ZIndex = 9
-    timeLabel.Parent = infoFrame
-
-    -- Função para atualizar a hora em tempo real
-    local function updateTime()
-        local currentTime = os.date("*t")
-        local hours = string.format("%02d", currentTime.hour)
-        local minutes = string.format("%02d", currentTime.min)
-        timeLabel.Text = "Hora: " .. hours .. ":" .. minutes
-    end
-
-    -- Atualizar a hora a cada frame
-    RunService.Heartbeat:Connect(function()
-        updateTime()
-    end)
-
-    -- Botão Dex Explorer na Top Bar como emoji de ferramenta
-    local dexButton = Instance.new("TextButton")
-    dexButton.Size = UDim2.new(0, 40, 0, 40)
-    dexButton.Position = UDim2.new(1, -80, 0, 5)
-    dexButton.BackgroundColor3 = themeColors.Button
-    dexButton.Text = "🛠️"
-    dexButton.TextColor3 = themeColors.Text
-    dexButton.Font = Enum.Font.GothamBold
-    dexButton.TextSize = 12
-    dexButton.ZIndex = 9
-    dexButton.Parent = topBar
-
-    local dexCorner = Instance.new("UICorner")
-    dexCorner.CornerRadius = UDim.new(0, 6)
-    dexCorner.Parent = dexButton
-
-    dexButton.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Dex.lua"))()
-        print("Dex Explorer: Executado")
-    end)
-
-    -- Botão de Fechar
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, 30, 0, 30)
-    closeButton.Position = UDim2.new(1, -120, 0, 5)
-    closeButton.BackgroundColor3 = themeColors.Button
-    closeButton.Text = "X"
-    closeButton.TextColor3 = themeColors.Text
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.TextSize = 16
-    closeButton.ZIndex = 9
-    closeButton.Parent = topBar
-
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
-    closeCorner.Parent = closeButton
-
-    closeButton.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        terminateScript()
-    end)
-
-    -- Botão de Minimizar
-    minimizeButton = Instance.new("TextButton")
-    minimizeButton.Size = UDim2.new(0, 30, 0, 30)
-    minimizeButton.Position = UDim2.new(1, -35, 0, 5)
-    minimizeButton.BackgroundColor3 = themeColors.Button
-    minimizeButton.Text = "−"
-    minimizeButton.TextColor3 = themeColors.Text
-    minimizeButton.Font = Enum.Font.GothamBold
-    minimizeButton.TextSize = 16
-    minimizeButton.ZIndex = 9
-    minimizeButton.Parent = topBar
-
-    local minimizeCorner = Instance.new("UICorner")
-    minimizeCorner.CornerRadius = UDim.new(0, 6)
-    minimizeCorner.Parent = minimizeButton
-
-    minimizeButton.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        isMinimized = true
-        guiState.isMinimized = true
-        mainFrame.Visible = false
-        floatingButton.Visible = true
-    end)
-
-    local statsConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue() or 0)
-        pingLabel.Text = string.format(" PG: %d ms", ping)
-        if ping <= 100 then
-            pingLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-        elseif ping <= 200 then
-            pingLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-        elseif ping <= 300 then
-            pingLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
-        else
-            pingLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-        end
-
-        local fps = math.floor(1 / deltaTime)
-        fpsLabel.Text = string.format("FPS: %d", fps)
-        if fps >= 60 then
-            fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-        elseif fps >= 30 then
-            fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-        elseif fps >= 15 then
-            fpsLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
-        else
-            fpsLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-        end
-
-        local activeScripts = 0
-        if flyEnabled then activeScripts = activeScripts + 1 end
-        if noclipEnabled then activeScripts = activeScripts + 1 end
-        if espPlayerEnabled then activeScripts = activeScripts + 1 end
-        if espNPCEnabled then activeScripts = activeScripts + 1 end
-        if flashlightEnabled then activeScripts = activeScripts + 1 end
-        if fullbrightEnabled then activeScripts = activeScripts + 1 end
-        if infiniteJumpEnabled then activeScripts = activeScripts + 1 end
-        if cameraActive then activeScripts = activeScripts + 1 end
-        if slowMotionActive then activeScripts = activeScripts + 1 end
-        if loopRotationEnabled then activeScripts = activeScripts + 1 end
-        if clickTeleportEnabled then activeScripts = activeScripts + 1 end
-        scriptsLabel.Text = string.format("Scripts: %d", activeScripts)
-        playersLabel.Text = string.format("Jogadores: %d", #Players:GetPlayers())
-    end)
-    table.insert(connections, statsConnection)
-
-    searchBar = Instance.new("TextBox")
-    searchBar.Size = UDim2.new(1, -20, 0, 30)
-    searchBar.Position = UDim2.new(0, 10, 0, 70)
-    searchBar.BackgroundColor3 = themeColors.SearchBar
-    searchBar.TextColor3 = themeColors.Text
-    searchBar.PlaceholderText = "Escreva algo para pesquisar"
-    searchBar.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    searchBar.Font = Enum.Font.Gotham
-    searchBar.TextSize = 14
-    searchBar.TextXAlignment = Enum.TextXAlignment.Left
-    searchBar.ClearTextOnFocus = false
-    searchBar.ZIndex = 7
-    searchBar.Parent = mainFrame
-
-    local searchCorner = Instance.new("UICorner")
-    searchCorner.CornerRadius = UDim.new(0, 6)
-    searchCorner.Parent = searchBar
-
-    local searchPadding = Instance.new("UIPadding")
-    searchPadding.PaddingLeft = UDim.new(0, 10)
-    searchPadding.Parent = searchBar
-
-    scrollingFrame = Instance.new("ScrollingFrame")
-    scrollingFrame.Size = UDim2.new(1, 0, 1, -110)
-    scrollingFrame.Position = UDim2.new(0, 0, 0, 110)
-    scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scrollingFrame.ScrollBarThickness = 4
-    scrollingFrame.BackgroundTransparency = 1
-    scrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrollingFrame.ZIndex = 10
-    scrollingFrame.Parent = mainFrame
-
-    local uiList = Instance.new("UIListLayout")
-    uiList.Padding = UDim.new(0, 5)
-    uiList.SortOrder = Enum.SortOrder.LayoutOrder
-    uiList.Parent = scrollingFrame
-
-    local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, 5)
-    padding.PaddingRight = UDim.new(0, 5)
-    padding.PaddingTop = UDim.new(0, 5)
-    padding.Parent = scrollingFrame
-
-    createFloatingButton()
-    createIntroScreen()
-
-    searchBar:GetPropertyChangedSignal("Text"):Connect(function()
-        local searchText = searchBar.Text:lower()
-        for _, child in ipairs(scrollingFrame:GetChildren()) do
-            if child:IsA("TextButton") or child:IsA("TextLabel") then
-                local text = child:IsA("TextButton") and child.Text or child.Text
-                child.Visible = searchText == "" or text:lower():find(searchText) ~= nil
-            elseif child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
-                local label = child:FindFirstChildOfClass("TextLabel")
-                child.Visible = searchText == "" or label.Text:lower():find(searchText) ~= nil
-            elseif child:IsA("ScrollingFrame") then
-                for _, entry in ipairs(child:GetChildren()) do
-                    if entry:IsA("Frame") and entry:FindFirstChild("PlayerName") then
-                        entry.Visible = searchText == "" or entry.PlayerName.Text:lower():find(searchText) ~= nil
-                    end
-                end
-            end
-        end
-    end)
-
-    local viewportConnection = Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(adjustGuiForDevice)
-    table.insert(connections, viewportConnection)
-
-    adjustGuiForDevice()
-end
-
--- Function to Add a Section Label
-local function addSectionLabel(text)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 20)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = themeColors.Text
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
-    label.ZIndex = 15
-    label.Parent = scrollingFrame
-    label.Visible = true
-end
-
--- Function to Add a Button
-local function addButton(text, callback, isToggle)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, -10, 0, 30)
-    button.BackgroundColor3 = themeColors.Button
-    button.TextColor3 = themeColors.Text
-    button.Text = text
-    button.Font = Enum.Font.Gotham
-    button.TextSize = 12
-    button.ZIndex = 15
-    button.Parent = scrollingFrame
-    button.Visible = true
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = button
-
-    local toggleIndicator = nil
-    local loopFrame = nil
-    local loopLabel = nil
-    local resetButton = nil
-    local isLooping = false
-
-    if isToggle then
-        toggleIndicator = Instance.new("Frame")
-        toggleIndicator.Size = UDim2.new(0, 20, 0, 20)
-        toggleIndicator.Position = UDim2.new(1, -30, 0.5, -10)
-        toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-        toggleIndicator.ZIndex = 16
-        local toggleCorner = Instance.new("UICorner")
-        toggleCorner.CornerRadius = UDim.new(0, 4)
-        toggleCorner.Parent = toggleIndicator
-        toggleIndicator.Parent = button
-
-        loopFrame = Instance.new("Frame")
-        loopFrame.Size = UDim2.new(0, 50, 0, 20)
-        loopFrame.Position = UDim2.new(1, -85, 0.5, -10)
-        loopFrame.BackgroundColor3 = themeColors.Button
-        loopFrame.ZIndex = 16
-        local loopCorner = Instance.new("UICorner")
-        loopCorner.CornerRadius = UDim.new(0, 4)
-        loopCorner.Parent = loopFrame
-        loopFrame.Parent = button
-
-        loopLabel = Instance.new("TextLabel")
-        loopLabel.Size = UDim2.new(1, 0, 1, 0)
-        loopLabel.BackgroundColor3 = themeColors.ToggleOff
-        loopLabel.Text = "Loop"
-        loopLabel.TextColor3 = themeColors.Text
-        loopLabel.Font = Enum.Font.Gotham
-        loopLabel.TextSize = 10
-        loopLabel.TextScaled = true
-        loopLabel.ZIndex = 17
-        local loopLabelCorner = Instance.new("UICorner")
-        loopLabelCorner.CornerRadius = UDim.new(0, 4)
-        loopLabelCorner.Parent = loopLabel
-        loopLabel.Parent = loopFrame
-
-        resetButton = Instance.new("TextButton")
-        resetButton.Size = UDim2.new(0, 50, 0, 20)
-        resetButton.Position = UDim2.new(1, -140, 0.5, -10)
-        resetButton.BackgroundColor3 = themeColors.Button
-        resetButton.Text = "Reset"
-        resetButton.TextColor3 = themeColors.Text
-        resetButton.Font = Enum.Font.Gotham
-        resetButton.TextSize = 10
-        resetButton.TextScaled = true
-        resetButton.ZIndex = 16
-        local resetCorner = Instance.new("UICorner")
-        resetCorner.CornerRadius = UDim.new(0, 4)
-        resetCorner.Parent = resetButton
-        resetButton.Parent = button
-    end
-
-    local function startLoop(state)
-        if activeLoops[text] then
-            task.cancel(activeLoops[text])
-            activeLoops[text] = nil
-        end
-        if state and isLooping then
-            activeLoops[text] = task.spawn(function()
-                while isLooping and toggleIndicator.BackgroundColor3 == themeColors.ToggleOn do
-                    callback(true)
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end
-
-    button.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        print("Botão clicado: " .. text)
-        if isToggle then
-            local state = toggleIndicator.BackgroundColor3 == themeColors.ToggleOff
-            toggleIndicator.BackgroundColor3 = state and themeColors.ToggleOn or themeColors.ToggleOff
-            playSound("5852470908")
-            print("Estado do toggle: " .. tostring(state))
-            callback(state)
-            if isLooping then
-                startLoop(state)
-            end
-        else
-            callback()
-        end
-    end)
-
-    if loopFrame then
-        loopFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                playSound("5852470908")
-                isLooping = not isLooping
-                loopLabel.BackgroundColor3 = isLooping and themeColors.ToggleOn or themeColors.ToggleOff
-                print("Loop para " .. text .. ": " .. (isLooping and "Ativado" or "Desativado"))
-                startLoop(toggleIndicator.BackgroundColor3 == themeColors.ToggleOn)
-            end
-        end)
-    end
-
-    if resetButton then
-        resetButton.MouseButton1Click:Connect(function()
-            playSound("5852470908")
-            print("Reset clicado para: " .. text)
-            if isToggle then
-                toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-                isLooping = false
-                loopLabel.BackgroundColor3 = themeColors.ToggleOff
-                if activeLoops[text] then
-                    task.cancel(activeLoops[text])
-                    activeLoops[text] = nil
-                end
-                callback(false)
-            end
-        end)
-    end
-end
-
--- Function to Add a Slider
-local function addSlider(name, default, min, max, callback)
-    local holder = Instance.new("Frame")
-    holder.Size = UDim2.new(1, -10, 0, 50)
-    holder.BackgroundTransparency = 1
-    holder.ZIndex = 15
-    holder.Parent = scrollingFrame
-    holder.Visible = true
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.5, 0, 0.4, 0)
-    label.Position = UDim2.new(0, 0, 0, 0)
-    label.Text = tostring(name) .. ": " .. tostring(default)
-    label.TextColor3 = themeColors.Accent
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 13
-    label.ZIndex = 15
-    label.Parent = holder
-
-    local sliderBox = Instance.new("TextBox")
-    sliderBox.Size = UDim2.new(0.2, 0, 0.4, 0)
-    sliderBox.Position = UDim2.new(0.78, 0, 0, 0)
-    sliderBox.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    sliderBox.TextColor3 = themeColors.Text
-    sliderBox.Font = Enum.Font.Gotham
-    sliderBox.TextSize = 12
-    sliderBox.Text = tostring(default)
-    sliderBox.ClearTextOnFocus = false
-    sliderBox.ZIndex = 15
-    local sliderBoxCorner = Instance.new("UICorner")
-    sliderBoxCorner.CornerRadius = UDim.new(0, 6)
-    sliderBoxCorner.Parent = sliderBox
-    sliderBox.Parent = holder
-
-    local loopFrame = Instance.new("Frame")
-    loopFrame.Size = UDim2.new(0, 50, 0, 20)
-    loopFrame.Position = UDim2.new(0.67, 0, 0, 2)
-    loopFrame.BackgroundColor3 = themeColors.Button
-    loopFrame.ZIndex = 16
-    local loopCorner = Instance.new("UICorner")
-    loopCorner.CornerRadius = UDim.new(0, 4)
-    loopCorner.Parent = loopFrame
-    loopFrame.Parent = holder
-
-    local loopLabel = Instance.new("TextLabel")
-    loopLabel.Size = UDim2.new(1, 0, 1, 0)
-    loopLabel.BackgroundColor3 = themeColors.ToggleOff
-    loopLabel.Text = "Loop"
-    loopLabel.TextColor3 = themeColors.Text
-    loopLabel.Font = Enum.Font.Gotham
-    loopLabel.TextSize = 10
-    loopLabel.TextScaled = true
-    loopLabel.ZIndex = 17
-    local loopLabelCorner = Instance.new("UICorner")
-    loopLabelCorner.CornerRadius = UDim.new(0, 4)
-    loopLabelCorner.Parent = loopLabel
-    loopLabel.Parent = loopFrame
-
-    local resetButton = Instance.new("TextButton")
-    resetButton.Size = UDim2.new(0, 50, 0, 20)
-    resetButton.Position = UDim2.new(0.56, 0, 0, 2)
-    resetButton.BackgroundColor3 = themeColors.Button
-    resetButton.Text = "Reset"
-    resetButton.TextColor3 = themeColors.Text
-    resetButton.Font = Enum.Font.Gotham
-    resetButton.TextSize = 10
-    resetButton.TextScaled = true
-    resetButton.ZIndex = 16
-    local resetCorner = Instance.new("UICorner")
-    resetCorner.CornerRadius = UDim.new(0, 4)
-    resetCorner.Parent = resetButton
-    resetButton.Parent = holder
-
-    local sliderBar = Instance.new("Frame")
-    sliderBar.Name = "SliderBar"
-    sliderBar.Size = UDim2.new(1, 0, 0.3, 0)
-    sliderBar.Position = UDim2.new(0, 0, 0.5, 0)
-    sliderBar.BackgroundColor3 = themeColors.Button
-    sliderBar.ZIndex = 15
-    local sliderBarCorner = Instance.new("UICorner")
-    sliderBarCorner.CornerRadius = UDim.new(0, 4)
-    sliderBarCorner.Parent = sliderBar
-    sliderBar.Parent = holder
-
-    local fillBar = Instance.new("Frame")
-    fillBar.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    fillBar.BackgroundColor3 = themeColors.Accent
-    fillBar.ZIndex = 15
-    local fillBarCorner = Instance.new("UICorner")
-    fillBarCorner.CornerRadius = UDim.new(0, 4)
-    fillBarCorner.Parent = fillBar
-    fillBar.Parent = sliderBar
-
-    local knob = Instance.new("TextButton")
-    knob.Size = UDim2.new(0, 16, 0, 16)
-    knob.Position = UDim2.new((default - min) / (max - min), -8, 0.5, -8)
-    knob.BackgroundColor3 = themeColors.Accent
-    knob.Text = ""
-    knob.AutoButtonColor = false
-    knob.ZIndex = 16
-    local knobCorner = Instance.new("UICorner")
-    knobCorner.CornerRadius = UDim.new(1, 0)
-    knobCorner.Parent = knob
-    knob.Parent = sliderBar
-
-    local currentValue = default
-    local isLooping = false
-
-    local function updateSliderUI(value)
-        sliderBox.Text = tostring(value)
-        label.Text = tostring(name) .. ": " .. tostring(value)
-        label.TextColor3 = themeColors.Accent
-        fillBar.BackgroundColor3 = themeColors.Accent
-        knob.BackgroundColor3 = themeColors.Accent
-        knob.Position = UDim2.new((value - min) / (max - min), -8, 0.5, -8)
-        TweenService:Create(fillBar, tweenInfo, {Size = UDim2.new((value - min) / (max - min), 0, 1, 0)}):Play()
-    end
-
-    local function applyValue(value)
-        currentValue = value
-        callback(value)
-        updateSliderUI(value)
-    end
-
-    local function startLoop()
-        if activeLoops[name] then
-            task.cancel(activeLoops[name])
-            activeLoops[name] = nil
-        end
-        if isLooping then
-            activeLoops[name] = task.spawn(function()
-                while isLooping do
-                    callback(currentValue)
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end
-
-    local dragging = false
-    local dragConnection1 = knob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-        end
-    end)
-    table.insert(connections, dragConnection1)
-
-    local dragConnection2 = knob.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    table.insert(connections, dragConnection2)
-
-    local inputConnection = UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local relativeX = math.clamp((input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
-            local value = min + (max - min) * relativeX
-            value = math.floor(value + 0.5)
-            applyValue(value)
-            if isLooping then
-                startLoop()
-            end
-        end
-    end)
-    table.insert(connections, inputConnection)
-
-    local focusConnection = sliderBox.FocusLost:Connect(function()
-        local value = tonumber(sliderBox.Text) or default
-        value = math.clamp(value, min, max)
-        applyValue(value)
-        if isLooping then
-            startLoop()
-        end
-    end)
-    table.insert(connections, focusConnection)
-
-    loopFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            playSound("5852470908")
-            isLooping = not isLooping
-            loopLabel.BackgroundColor3 = isLooping and themeColors.ToggleOn or themeColors.ToggleOff
-            print("Loop para " .. name .. ": " .. (isLooping and "Ativado" or "Desativado"))
-            startLoop()
-        end
-    end)
-
-    resetButton.MouseButton1Click:Connect(function()
-        playSound("5852470908")
-        print("Reset clicado para: " .. name)
-        local defaultValue = defaultSettings[name] or default
-        if name == "Velocidade" then
-            defaultValue = defaultSettings.WalkSpeed
-        elseif name == "Pulo" then
-            defaultValue = defaultSettings.JumpPower
-        elseif name == "Velocidade de Voo" then
-            defaultValue = defaultSettings.FlySpeed
-        elseif name == "Alcance da Lanterna" then
-            defaultValue = defaultSettings.FlashlightRange
-        elseif name == "Distância ESP Player" then
-            defaultValue = defaultSettings.EspPlayerDistance
-        elseif name == "Distância ESP NPC" then
-            defaultValue = defaultSettings.EspNPCDistance
-        elseif name == "Distância de Seguimento" then
-            defaultValue = defaultSettings.FollowDistance
-        end
-        applyValue(defaultValue)
-        isLooping = false
-        loopLabel.BackgroundColor3 = themeColors.ToggleOff
-        if activeLoops[name] then
-            task.cancel(activeLoops[name])
-            activeLoops[name] = nil
-        end
-    end)
-end
+-- Load Discord UI Library
+local DiscordLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/UI-Libs/main/discord%20lib.txt"))()
+local win = DiscordLib:Window("Ferickinho Hub")
+local mainServer = win:Server("Main", "")
 
 -- Function to Terminate Script
 local function terminateScript()
@@ -1188,10 +246,6 @@ local function terminateScript()
     ContextActionService:UnbindAction("BlockMovement")
 
     disconnectAll()
-    if screenGui then
-        screenGui:Destroy()
-        screenGui = nil
-    end
 end
 
 -- Fly Functionality
@@ -1296,8 +350,8 @@ local function toggleEspPlayer(enabled)
                     local distance = (playerRoot.Position - rootPart.Position).Magnitude
                     if distance <= espPlayerDistance then
                         local highlight = Instance.new("Highlight")
-                        highlight.FillColor = themeColors.Accent
-                        highlight.OutlineColor = themeColors.Accent
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
                         highlight.Adornee = player.Character
                         highlight.Parent = player.Character
                         playerHighlights[player] = highlight
@@ -1315,8 +369,8 @@ local function toggleEspPlayer(enabled)
                             local distance = (playerRoot.Position - rootPart.Position).Magnitude
                             if distance <= espPlayerDistance then
                                 local highlight = Instance.new("Highlight")
-                                highlight.FillColor = themeColors.Accent
-                                highlight.OutlineColor = themeColors.Accent
+                                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
                                 highlight.Adornee = character
                                 highlight.Parent = character
                                 playerHighlights[player] = highlight
@@ -1366,8 +420,8 @@ local function toggleEspNPC(enabled)
                     local distance = (playerRoot.Position - rootPart.Position).Magnitude
                     if distance <= espNPCDistance then
                         local highlight = Instance.new("Highlight")
-                        highlight.FillColor = themeColors.Accent
-                        highlight.OutlineColor = themeColors.Accent
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
                         highlight.Adornee = obj
                         highlight.Parent = obj
                         npcHighlights[obj] = highlight
@@ -1383,8 +437,8 @@ local function toggleEspNPC(enabled)
                     local distance = (playerRoot.Position - rootPart.Position).Magnitude
                     if distance <= espNPCDistance then
                         local highlight = Instance.new("Highlight")
-                        highlight.FillColor = themeColors.Accent
-                        highlight.OutlineColor = themeColors.Accent
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
                         highlight.Adornee = obj
                         highlight.Parent = obj
                         npcHighlights[obj] = highlight
@@ -1584,147 +638,34 @@ local function toggleFullbright(enabled)
     end
 end
 
--- Player List Functionality
-local function createPlayerList()
-    playerListFrame = Instance.new("ScrollingFrame")
-    playerListFrame.Size = UDim2.new(1, 0, 0.3, 0)
-    playerListFrame.Position = UDim2.new(0, 0, 0, 0)
-    playerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    playerListFrame.ScrollBarThickness = 4
-    playerListFrame.BackgroundTransparency = 1
-    playerListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    playerListFrame.ZIndex = 15
-    playerListFrame.Parent = scrollingFrame
-
-    local uiList = Instance.new("UIListLayout")
-    uiList.Padding = UDim.new(0, 5)
-    uiList.SortOrder = Enum.SortOrder.LayoutOrder
-    uiList.Parent = playerListFrame
-
-    local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, 5)
-    padding.PaddingRight = UDim.new(0, 5)
-    padding.PaddingTop = UDim.new(0, 5)
-    padding.Parent = playerListFrame
-
-    local function addPlayerEntry(player)
-        if player == LocalPlayer then return end
-        local entry = Instance.new("Frame")
-        entry.Size = UDim2.new(1, -10, 0, 30)
-        entry.BackgroundTransparency = 1
-        entry.ZIndex = 15
-        entry.Parent = playerListFrame
-        entry.Visible = true
-
-        local nameButton = Instance.new("TextButton")
-        nameButton.Name = "PlayerName"
-        nameButton.Size = UDim2.new(0.5, 0, 1, 0)
-        nameButton.BackgroundColor3 = themeColors.Button
-        nameButton.TextColor3 = themeColors.Text
-        nameButton.Text = player.Name
-        nameButton.Font = Enum.Font.Gotham
-        nameButton.TextSize = 12
-        nameButton.ZIndex = 16
-        local nameCorner = Instance.new("UICorner")
-        nameCorner.CornerRadius = UDim.new(0, 6)
-        nameCorner.Parent = nameButton
-        nameButton.Parent = entry
-
-        local teleportButton = Instance.new("TextButton")
-        teleportButton.Size = UDim2.new(0.2, 0, 1, 0)
-        teleportButton.Position = UDim2.new(0.55, 0, 0, 0)
-        teleportButton.BackgroundColor3 = themeColors.Button
-        teleportButton.TextColor3 = themeColors.Text
-        teleportButton.Text = "Teleportar"
-        teleportButton.Font = Enum.Font.Gotham
-        teleportButton.TextSize = 12
-        teleportButton.ZIndex = 16
-        local teleportCorner = Instance.new("UICorner")
-        teleportCorner.CornerRadius = UDim.new(0, 6)
-        teleportCorner.Parent = teleportButton
-        teleportButton.Parent = entry
-
-        local followButton = Instance.new("TextButton")
-        followButton.Size = UDim2.new(0.2, 0, 1, 0)
-        followButton.Position = UDim2.new(0.8, 0, 0, 0)
-        followButton.BackgroundColor3 = themeColors.Button
-        followButton.TextColor3 = themeColors.Text
-        followButton.Text = "Grudar"
-        followButton.Font = Enum.Font.Gotham
-        followButton.TextSize = 12
-        followButton.ZIndex = 16
-        local followCorner = Instance.new("UICorner")
-        followCorner.CornerRadius = UDim.new(0, 6)
-        followCorner.Parent = followButton
-        local followIndicator = Instance.new("Frame")
-        followIndicator.Size = UDim2.new(0, 20, 0, 20)
-        followIndicator.Position = UDim2.new(1, -25, 0.5, -10)
-        followIndicator.BackgroundColor3 = themeColors.ToggleOff
-        followIndicator.ZIndex = 17
-        local followIndicatorCorner = Instance.new("UICorner")
-        followIndicatorCorner.CornerRadius = UDim.new(0, 4)
-        followIndicatorCorner.Parent = followIndicator
-        followIndicator.Parent = followButton
-        followButton.Parent = entry
-
-        playerEntries[player] = entry
-
-        nameButton.MouseButton1Click:Connect(function()
-            playSound("5852470908")
-            selectedFollowPlayer = player
-            for otherPlayer, otherEntry in pairs(playerEntries) do
-                otherEntry.PlayerName.BackgroundColor3 = otherPlayer == player and themeColors.Selected or themeColors.Button
-            end
-        end)
-
-        teleportButton.MouseButton1Click:Connect(function()
-            playSound("5852470908")
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
-                PlayerCharacter.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
-            end
-        end)
-
-        followButton.MouseButton1Click:Connect(function()
-            playSound("5852470908")
-            local state = followIndicator.BackgroundColor3 == themeColors.ToggleOff
-            followIndicator.BackgroundColor3 = state and themeColors.ToggleOn or themeColors.ToggleOff
-            playSound("5852470908")
-            if state then
-                selectedFollowPlayer = player
-                followEnabled = true
-                for otherPlayer, otherEntry in pairs(playerEntries) do
-                    otherEntry.PlayerName.BackgroundColor3 = otherPlayer == player and themeColors.Selected or themeColors.Button
-                    if otherPlayer ~= player then
-                        otherEntry.FollowButton:FindFirstChildOfClass("Frame").BackgroundColor3 = themeColors.ToggleOff
-                    end
-                end
-            else
-                followEnabled = false
-                selectedFollowPlayer = nil
-            end
-        end)
+-- Player List Functionality (Simplified for Discord UI)
+local function updatePlayerList(channel)
+    for _, entry in pairs(playerEntries) do
+        entry:Destroy()
     end
-
-    local function removePlayerEntry(player)
-        if playerEntries[player] then
-            playerEntries[player]:Destroy()
-            playerEntries[player] = nil
-            if selectedFollowPlayer == player then
-                selectedFollowPlayer = nil
-                followEnabled = false
-            end
-        end
-    end
+    playerEntries = {}
 
     for _, player in ipairs(Players:GetPlayers()) do
-        addPlayerEntry(player)
+        if player ~= LocalPlayer then
+            local entry = channel:Button(player.Name .. " - Teleportar", function()
+                playSound("5852470908")
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
+                    PlayerCharacter.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                end
+            end)
+            local followToggle = channel:Toggle(player.Name .. " - Grudar", false, function(state)
+                playSound("5852470908")
+                if state then
+                    selectedFollowPlayer = player
+                    followEnabled = true
+                else
+                    followEnabled = false
+                    selectedFollowPlayer = nil
+                end
+            end)
+            playerEntries[player] = { entry, followToggle }
+        end
     end
-
-    local playerAddedConnection = Players.PlayerAdded:Connect(addPlayerEntry)
-    table.insert(connections, playerAddedConnection)
-
-    local playerRemovingConnection = Players.PlayerRemoving:Connect(removePlayerEntry)
-    table.insert(connections, playerRemovingConnection)
 
     local followConnection = RunService.RenderStepped:Connect(function()
         if not followEnabled or not selectedFollowPlayer or not PlayerCharacter or not PlayerCharacter:FindFirstChild("HumanoidRootPart") then
@@ -1739,12 +680,6 @@ local function createPlayerList()
         else
             followEnabled = false
             selectedFollowPlayer = nil
-            for _, entry in pairs(playerEntries) do
-                local indicator = entry.FollowButton:FindFirstChildOfClass("Frame")
-                if indicator then
-                    indicator.BackgroundColor3 = themeColors.ToggleOff
-                end
-            end
         end
     end)
     table.insert(connections, followConnection)
@@ -1790,89 +725,23 @@ local function reapplyGuiState(character)
         PlayerCharacter.Humanoid.JumpPower = guiState.jumpPower
     end
 
-    if guiState.flyEnabled then
-        toggleFly(true)
-    end
-    if guiState.noclipEnabled then
-        toggleNoclip(true)
-    end
-    if guiState.espPlayerEnabled then
-        toggleEspPlayer(true)
-    end
-    if guiState.espNPCEnabled then
-        toggleEspNPC(true)
-    end
-    if guiState.flashlightEnabled then
-        toggleFlashlight(true)
-    end
-    if guiState.fullbrightEnabled then
-        toggleFullbright(true)
-    end
-    if guiState.infiniteJumpEnabled then
-        toggleInfiniteJump(true)
-    end
-    if guiState.cameraActive then
-        toggleFreeCam(guiState.cameraState)
-    end
-    if guiState.slowMotionActive then
-        toggleSlowMotion(true)
-    end
-    if guiState.loopRotationEnabled then
-        loopRotationEnabled = true
-    end
-    if guiState.clickTeleportEnabled then
-        clickTeleportEnabled = true
-    end
-
-    if screenGui and not introFrame then
-        screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-        if guiState.isMinimized then
-            mainFrame.Visible = false
-            floatingButton.Visible = true
-        else
-            mainFrame.Visible = true
-            floatingButton.Visible = false
-        end
-    end
-
-    for _, child in ipairs(scrollingFrame:GetChildren()) do
-        if child:IsA("Frame") and child:FindFirstChild("SliderBar") then
-            local label = child:FindFirstChildOfClass("TextLabel")
-            local sliderBox = child:FindFirstChildOfClass("TextBox")
-            local name = string.match(label.Text, "^([^:]+)")
-            if name == "Velocidade" then
-                sliderBox.Text = tostring(guiState.walkSpeed)
-                label.Text = "Velocidade: " .. guiState.walkSpeed
-            elseif name == "Pulo" then
-                sliderBox.Text = tostring(guiState.jumpPower)
-                label.Text = "Pulo: " .. guiState.jumpPower
-            elseif name == "Velocidade de Voo" then
-                sliderBox.Text = tostring(guiState.flySpeed)
-                label.Text = "Velocidade de Voo: " .. guiState.flySpeed
-            elseif name == "Distância ESP Player" then
-                sliderBox.Text = tostring(guiState.espPlayerDistance)
-                label.Text = "Distância ESP Player: " .. guiState.espPlayerDistance
-            elseif name == "Distância ESP NPC" then
-                sliderBox.Text = tostring(guiState.espNPCDistance)
-                label.Text = "Distância ESP NPC: " .. guiState.espNPCDistance
-            elseif name == "Alcance da Lanterna" then
-                sliderBox.Text = tostring(guiState.flashlightRange)
-                label.Text = "Alcance da Lanterna: " .. guiState.flashlightRange
-            elseif name == "Distância de Seguimento" then
-                sliderBox.Text = tostring(guiState.followDistance)
-                label.Text = "Distância de Seguimento: " .. guiState.followDistance
-            end
-        end
-    end
+    if guiState.flyEnabled then toggleFly(true) end
+    if guiState.noclipEnabled then toggleNoclip(true) end
+    if guiState.espPlayerEnabled then toggleEspPlayer(true) end
+    if guiState.espNPCEnabled then toggleEspNPC(true) end
+    if guiState.flashlightEnabled then toggleFlashlight(true) end
+    if guiState.fullbrightEnabled then toggleFullbright(true) end
+    if guiState.infiniteJumpEnabled then toggleInfiniteJump(true) end
+    if guiState.cameraActive then toggleFreeCam(guiState.cameraState) end
+    if guiState.slowMotionActive then toggleSlowMotion(true) end
+    if guiState.loopRotationEnabled then loopRotationEnabled = true end
+    if guiState.clickTeleportEnabled then clickTeleportEnabled = true end
 end
 
 -- Function to Block/Unblock Player Movement
 local function blockPlayerMovement(block)
     local humanoid = PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid")
-    if not humanoid then
-        print("Erro: Humanoid não encontrado.")
-        return
-    end
+    if not humanoid then return end
     if block then
         originalWalkSpeed = humanoid.WalkSpeed
         originalJumpPower = humanoid.JumpPower
@@ -1919,24 +788,11 @@ local function toggleInterface(hide)
         interfaceHidden = true
         guiStates = {}
         for _, gui in ipairs(LocalPlayer:WaitForChild("PlayerGui"):GetChildren()) do
-            if gui:IsA("ScreenGui") and gui ~= screenGui and gui.Name ~= "CoreGui" then
+            if gui:IsA("ScreenGui") and gui.Name ~= "CoreGui" then
                 guiStates[gui] = gui.Enabled
                 gui.Enabled = false
             end
         end
-
-        local coreGui = game:GetService("CoreGui")
-        local backpackGui = coreGui:FindFirstChild("RobloxGui")
-        if backpackGui then
-            for _, child in ipairs(backpackGui:GetDescendants()) do
-                if child:IsA("GuiObject") and child.Name ~= "ControlFrame" then
-                    guiStates[child] = child.Visible
-                    child.Visible = false
-                end
-            end
-        end
-
-        mainFrameVisibleBeforeCamera = mainFrame.Visible
         StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
         StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
         StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
@@ -1944,27 +800,13 @@ local function toggleInterface(hide)
         if interfaceHidden then
             for gui, state in pairs(guiStates) do
                 if gui and gui.Parent then
-                    if gui:IsA("ScreenGui") then
-                        gui.Enabled = state
-                    elseif gui:IsA("GuiObject") then
-                        gui.Visible = state
-                    end
+                    gui.Enabled = state
                 end
             end
             guiStates = {}
-            mainFrame.Visible = mainFrameVisibleBeforeCamera
             StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true)
             StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
             StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, true)
-            local coreGui = game:GetService("CoreGui")
-            local backpackGui = coreGui:FindFirstChild("RobloxGui")
-            if backpackGui then
-                for _, child in ipairs(backpackGui:GetDescendants()) do
-                    if child:IsA("GuiObject") and guiStates[child] ~= nil then
-                        child.Visible = guiStates[child]
-                    end
-                end
-            end
             interfaceHidden = false
         end
     end
@@ -1997,16 +839,12 @@ end
 
 -- Function to Control Free Cam
 local function toggleFreeCam(state)
-    if not PlayerCharacter or not PlayerCharacter:FindFirstChild("HumanoidRootPart") then
-        print("Erro: Personagem ou HumanoidRootPart não encontrado.")
-        return
-    end
+    if not PlayerCharacter or not PlayerCharacter:FindFirstChild("HumanoidRootPart") then return end
 
     cameraState = state
     cameraActive = state > 0
     guiState.cameraState = state
     guiState.cameraActive = cameraActive
-    print("Free Cam: " .. (cameraActive and "Ativada (Estado: " .. state .. ")" or "Desativada"))
 
     if cameraActive then
         originalCameraType = Workspace.CurrentCamera.CameraType
@@ -2024,6 +862,7 @@ local function toggleFreeCam(state)
 
         if cameraState == 2 then
             cinematicBarsActive = true
+            local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
             topCinematicBar = Instance.new("Frame")
             topCinematicBar.Size = UDim2.new(1, 0, 0, 120)
             topCinematicBar.Position = UDim2.new(0, 0, 0, -60)
@@ -2144,21 +983,14 @@ local function toggleSlowMotion(enabled)
     speedTween:Play()
     speedTween.Completed:Connect(function()
         currentSpeed = targetSpeed
-        print("Slow Motion: " .. (slowMotionActive and "Ativado" or "Desativado"))
     end)
 end
 
 -- Function for Teleport with Click
 local function performClickTeleport(position)
     local rootPart = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
-    if not rootPart then
-        warn("Erro: HumanoidRootPart não encontrado.")
-        return
-    end
-    if not Workspace.CurrentCamera then
-        warn("Erro: Câmera não encontrada.")
-        return
-    end
+    if not rootPart then return end
+    if not Workspace.CurrentCamera then return end
 
     local targetPosition
     if UserInputService.TouchEnabled and position then
@@ -2170,31 +1002,23 @@ local function performClickTeleport(position)
         raycastParams.IgnoreWater = true
         local raycastResult = Workspace:Raycast(rayOrigin.Origin, rayOrigin.Direction * maxDistance, raycastParams)
 
-        if not raycastResult then
-            warn("Erro: Nenhuma superfície colidível encontrada.")
-            return
-        end
+        if not raycastResult then return end
         targetPosition = raycastResult.Position
     else
         local mouse = LocalPlayer:GetMouse()
-        if not mouse.Hit then
-            warn("Erro: Posição do mouse não detectada.")
-            return
-        end
+        if not mouse.Hit then return end
         targetPosition = mouse.Hit.Position
     end
 
     local safePosition = targetPosition + Vector3.new(0, 2.5, 0)
     rootPart.CFrame = CFrame.new(safePosition)
     playSound("5852470908")
-    print("Teleportado para: " .. tostring(safePosition))
 end
 
 -- Function to Toggle Click Teleport
 local function toggleClickTeleport(enabled)
     clickTeleportEnabled = enabled
     guiState.clickTeleportEnabled = enabled
-    print("Teleportar para Clique: " .. (enabled and "Ativado" or "Desativado"))
 end
 
 -- Conexão para detectar cliques/toques
@@ -2209,228 +1033,190 @@ table.insert(connections, clickTeleportConnection)
 
 -- Function to Toggle Loop Rotation
 local function toggleLoopRotation(enabled)
-    if not cameraActive then
-        print("Erro: Free Cam deve estar ativa para usar rotação em loop.")
-        return
-    end
+    if not cameraActive then return end
     loopRotationEnabled = enabled
     guiState.loopRotationEnabled = enabled
     if enabled then
         loopRotationCenter = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") and PlayerCharacter.HumanoidRootPart.Position or loopRotationCenter
-        print("Rotação em loop: Ativada")
-    else
-        print("Rotação em loop: Desativada")
     end
-end
-
--- Function to Toggle Mouse Lock
-local function toggleMouseLock()
-    mouseLocked = not mouseLocked
-    UserInputService.MouseBehavior = mouseLocked and Enum.MouseBehavior.LockCenter or Enum.MouseBehavior.Default
-    UserInputService.MouseIconEnabled = not mouseLocked
-    print("Mouse: " .. (mouseLocked and "Travado" or "Destravado"))
 end
 
 -- Main Function to Initialize the GUI
 local function initializeGui()
-    createGui()
     setupClassicCamera()
 
     if not PlayerCharacter then
-        print("Aguardando personagem carregar...")
         LocalPlayer.CharacterAdded:Wait()
         PlayerCharacter = LocalPlayer.Character
     end
 
-    -- Seções organizadas em ordem alfabética
-    addSectionLabel("Administração")
-    addButton("CMD (TEST)", function()
+    -- Administração Channel
+    local adminChannel = mainServer:Channel("Administração")
+    adminChannel:Button("CMD (TEST)", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source"))()
-        print("CMD (TEST): Executado")
-    end, false)
-    addButton("Fates Admin", function()
+    end)
+    adminChannel:Button("Fates Admin", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/fatesc/fates-admin/main/main.lua"))()
-        print("Fates Admin: Executado")
-    end, false)
-    addButton("Infinite Yield Scripts", function()
+    end)
+    adminChannel:Button("Infinite Yield Scripts", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-        print("Infinite Yield Scripts: Executado")
-    end, false)
-    addButton("Nameless Admin", function()
+    end)
+    adminChannel:Button("Nameless Admin", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/FilteringEnabled/NamelessAdmin/main/Source"))()
-        print("Nameless Admin: Executado")
-    end, false)
-    addButton("Proton 2 Free Admin", function()
+    end)
+    adminChannel:Button("Proton 2 Free Admin", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Proton2Free.lua"))()
-        print("Proton 2 Free Admin: Executado")
-    end, false)
-    addButton("Proton Free Admin", function()
+    end)
+    adminChannel:Button("Proton Free Admin", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Free.lua"))()
-        print("Proton Free Admin: Executado")
-    end, false)
-    addButton("Reviz Admin V2", function()
+    end)
+    adminChannel:Button("Reviz Admin V2", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/2tu3/Reviz-Admin-V2/main/RevizAdminV2"))()
-        print("Reviz Admin V2: Executado")
-    end, false)
-    addButton("Shattervast Admin", function()
+    end)
+    adminChannel:Button("Shattervast Admin", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Shattervast/Shattervast-Admin/main/source"))()
-        print("Shattervast Admin: Executado")
-    end, false)
-    addButton("SkyHub", function()
+    end)
+    adminChannel:Button("SkyHub", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/main/SkyHub.txt"))()
-        print("SkyHub: Executado")
-    end, false)
+    end)
 
-    addSectionLabel("Controle de Teleporte")
-    addButton("Teleportar para Clique", function(state)
+    -- Controle de Teleporte Channel
+    local teleportChannel = mainServer:Channel("Controle de Teleporte")
+    teleportChannel:Toggle("Teleportar para Clique", false, function(state)
         toggleClickTeleport(state)
-    end, true)
-    addButton("Teleportar para o Cursor/Toque", function()
+    end)
+    teleportChannel:Button("Teleportar para o Cursor/Toque", function()
         performClickTeleport()
-    end, false)
+    end)
 
-    addSectionLabel("Espião")
-    addButton("Anti-AFK", function()
+    -- Espião Channel
+    local spyChannel = mainServer:Channel("Espião")
+    spyChannel:Button("Anti-AFK", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/KikoTheDev/Anti-AFK/main/AntiAFK.lua"))()
-        print("Anti-AFK: Executado")
-    end, false)
-    addButton("Dark Dex", function()
+    end)
+    spyChannel:Button("Dark Dex", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Babyhamsta/RBLX_Scripts/main/Universal/DarkDex.lua"))()
-        print("Dark Dex: Executado")
-    end, false)
-    addButton("ESP (Extra Sensory Perception)", function()
+    end)
+    spyChannel:Button("ESP (Extra Sensory Perception)", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ic3w0lf22/Unnamed-ESP/master/UnnamedESP.lua"))()
-        print("ESP (Extra Sensory Perception): Executado")
-    end, false)
-    addButton("FPS Unlocker", function()
+    end)
+    spyChannel:Button("FPS Unlocker", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/linethan/fpsunlocker/main/fpsunlocker.lua"))()
-        print("FPS Unlocker: Executado")
-    end, false)
-    addButton("Script Dumper", function()
+    end)
+    spyChannel:Button("Script Dumper", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/MajinSupremacy/ScriptDumperV2/main/ScriptDumperV2"))()
-        print("Script Dumper: Executado")
-    end, false)
-    addButton("Sigma Spy (Level 7)", function()
+    end)
+    spyChannel:Button("Sigma Spy (Level 7)", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/depthso/Sigma-Spy/refs/heads/main/Main.lua"))()
-        print("Sigma Spy (Level 7): Executado")
-    end, false)
-    addButton("Simple Spy Lite", function()
+    end)
+    spyChannel:Button("Simple Spy Lite", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremestuffs/SimpleSpySource/master/SimpleSpy.lua"))()
-        print("Simple Spy Lite: Executado")
-    end, false)
-    addButton("Turtle-Spy", function()
+    end)
+    spyChannel:Button("Turtle-Spy", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ThatMG393/Turtle-Spy/main/source.lua"))()
-        print("Turtle-Spy: Executado")
-    end, false)
-    addButton("Universal Remote Spy V3", function()
+    end)
+    spyChannel:Button("Universal Remote Spy V3", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ThatMG393/UniversalRemoteSpy/main/v3.lua"))()
-        print("Universal Remote Spy V3: Executado")
-    end, false)
+    end)
 
-    addSectionLabel("Lista de Jogadores")
-    addSlider("Distância de Seguimento", 5, 1, 50, function(value)
+    -- Lista de Jogadores Channel
+    local playerListChannel = mainServer:Channel("Lista de Jogadores")
+    playerListChannel:Slider("Distância de Seguimento", 1, 50, 5, function(value)
         followDistance = value
         guiState.followDistance = value
     end)
-    createPlayerList()
+    updatePlayerList(playerListChannel)
+    Players.PlayerAdded:Connect(function(player) updatePlayerList(playerListChannel) end)
+    Players.PlayerRemoving:Connect(function(player) updatePlayerList(playerListChannel) end)
 
-    addSectionLabel("Modificações do Jogador")
-    addButton("Noclip", function(state)
+    -- Modificações do Jogador Channel
+    local playerModsChannel = mainServer:Channel("Modificações do Jogador")
+    playerModsChannel:Toggle("Noclip", false, function(state)
         toggleNoclip(state)
-    end, true)
-    addSlider("Pulo", 50, 50, 600, function(value)
+    end)
+    playerModsChannel:Slider("Pulo", 50, 600, 50, function(value)
         jumpPower = value
         guiState.jumpPower = value
         if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
             PlayerCharacter.Humanoid.JumpPower = value
         end
     end)
-    addButton("Pulo Infinito", function(state)
+    playerModsChannel:Toggle("Pulo Infinito", false, function(state)
         toggleInfiniteJump(state)
-    end, true)
-    addSlider("Velocidade", 16, 16, 1000, function(value)
+    end)
+    playerModsChannel:Slider("Velocidade", 16, 1000, 16, function(value)
         walkSpeed = value
         guiState.walkSpeed = value
         if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
             PlayerCharacter.Humanoid.WalkSpeed = value
         end
     end)
-    addSlider("Velocidade de Voo", 50, 10, 1000, function(value)
+    playerModsChannel:Slider("Velocidade de Voo", 10, 1000, 50, function(value)
         flySpeed = value
         guiState.flySpeed = value
     end)
-    addButton("Voar", function(state)
+    playerModsChannel:Toggle("Voar", false, function(state)
         toggleFly(state)
-    end, true)
+    end)
 
-    addSectionLabel("Modificações Visuais")
-    addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
+    -- Modificações Visuais Channel
+    local visualModsChannel = mainServer:Channel("Modificações Visuais")
+    visualModsChannel:Slider("Alcance da Lanterna", 20, 120, 60, function(value)
         flashlightRange = value
         guiState.flashlightRange = value
     end)
-    addSlider("Distância ESP NPC", 500, 50, 1000, function(value)
+    visualModsChannel:Slider("Distância ESP NPC", 50, 1000, 500, function(value)
         espNPCDistance = value
         guiState.espNPCDistance = value
     end)
-    addSlider("Distância ESP Player", 500, 50, 1000, function(value)
+    visualModsChannel:Slider("Distância ESP Player", 50, 1000, 500, function(value)
         espPlayerDistance = value
         guiState.espPlayerDistance = value
     end)
-    addButton("Esp NPC", function(state)
+    visualModsChannel:Toggle("Esp NPC", false, function(state)
         toggleEspNPC(state)
-    end, true)
-    addButton("Esp Player", function(state)
+    end)
+    visualModsChannel:Toggle("Esp Player", false, function(state)
         toggleEspPlayer(state)
-    end, true)
-    addButton("Flashlight", function(state)
+    end)
+    visualModsChannel:Toggle("Flashlight", false, function(state)
         toggleFlashlight(state)
-    end, true)
-    addButton("Fullbright", function(state)
+    end)
+    visualModsChannel:Toggle("Fullbright", false, function(state)
         toggleFullbright(state)
-    end, true)
+    end)
 
-    addSectionLabel("Scripts de Jogos")
-    addButton("Aimbot Mobile", function()
+    -- Scripts de Jogos Channel
+    local gameScriptsChannel = mainServer:Channel("Scripts de Jogos")
+    gameScriptsChannel:Button("Aimbot Mobile", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Aimbot%20mobile.lua"))()
-        print("Aimbot Mobile: Executado")
-    end, false)
-    addButton("Aimbot PC", function()
+    end)
+    gameScriptsChannel:Button("Aimbot PC", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
-        print("Aimbot PC: Executado")
-    end, false)
-    addButton("Animações de Movimento", function()
+    end)
+    gameScriptsChannel:Button("Animações de Movimento", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/anima%C3%A7%C3%B5es%20de%20movimento.lua"))()
-        print("Animações de Movimento: Executado")
-    end, false)
-    addButton("Arise Crossover", function()
+    end)
+    gameScriptsChannel:Button("Arise Crossover", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/perfectusmim1/script/refs/heads/main/crossover"))()
-        print("Arise Crossover: Executado")
-    end, false)
-    addButton("Be NPC or Die", function()
+    end)
+    gameScriptsChannel:Button("Be NPC or Die", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Bac0nHck/Scripts/refs/heads/main/BeNpcOrDie"))()
-        print("Be NPC or Die: Script executado")
-    end, false)
-    addButton("Blade Ball", function()
+    end)
+    gameScriptsChannel:Button("Blade Ball", function()
         loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/79ab2d3174641622d317f9e234797acb.lua"))()
-        print("Blade Ball: Executado")
-    end, false)
-    addButton("Blox Fruits Auto Join + Tradução", function()
-        local Settings = {
-            JoinTeam = "Pirates",
-            Translator = true
-        }
+    end)
+    gameScriptsChannel:Button("Blox Fruits Auto Join + Tradução", function()
+        local Settings = { JoinTeam = "Pirates", Translator = true }
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Trustmenotcondom/QTONYX/refs/heads/main/QuantumOnyx.lua"))()
-        print("Blox Fruits: Script executado com configurações personalizadas")
-    end, false)
-    addButton("Blue Lock", function()
+    end)
+    gameScriptsChannel:Button("Blue Lock", function()
         loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/e1cfd93b113a79773d93251b61af1e2f.lua"))()
-        print("Blue Lock: Executado")
-    end, false)
-    addButton("Brainrot Evolution", function()
+    end)
+    gameScriptsChannel:Button("Brainrot Evolution", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/BrainrotEvolution"))()
-        print("Brainrot Evolution: Executado")
-    end, false)
-    addButton("Daily Reward Hack", function()
+    end)
+    gameScriptsChannel:Button("Daily Reward Hack", function()
         local Coins = 99999
         local args = {
             [1] = {
@@ -2447,33 +1233,26 @@ local function initializeGui()
             }
         }
         game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
-        print("Recompensa diária hackeada com " .. Coins .. " moedas!")
-    end, false)
-    addButton("Dead Rails", function()
+    end)
+    gameScriptsChannel:Button("Dead Rails", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DeadRails"))()
-        print("Dead Rails: Executado")
-    end, false)
-    addButton("Doors | Blackking + BobHub", function()
+    end)
+    gameScriptsChannel:Button("Doors | Blackking + BobHub", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/KINGHUB01/BlackKing-obf/main/Doors%20Blackking%20And%20BobHub"))()
-        print("Doors Blackking + BobHub: Script executado")
-    end, false)
-    addButton("Doors | DarkDoorsKing Rank", function()
+    end)
+    gameScriptsChannel:Button("Doors | DarkDoorsKing Rank", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/DarkDoorsKing/Clinet/main/DoorsRank"))()
-        print("Doors DarkDoorsKing Rank: Script executado")
-    end, false)
-    addButton("Dungeon Leveling", function()
+    end)
+    gameScriptsChannel:Button("Dungeon Leveling", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DungeonLeveling"))()
-        print("Dungeon Leveling: Executado")
-    end, false)
-    addButton("Fisch", function()
+    end)
+    gameScriptsChannel:Button("Fisch", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/FischModded"))()
-        print("Fisch: Executado")
-    end, false)
-    addButton("Hunters", function()
+    end)
+    gameScriptsChannel:Button("Hunters", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/Hunters"))()
-        print("Hunters: Executado")
-    end, false)
-    addButton("Loop Recompensa Desenvolvedor", function()
+    end)
+    gameScriptsChannel:Button("Loop Recompensa Desenvolvedor", function()
         task.spawn(function()
             while wait() do
                 for i = 1, 10 do
@@ -2481,29 +1260,23 @@ local function initializeGui()
                 end
             end
         end)
-        print("Loop Recompensa Desenvolvedor: Iniciado")
-    end, false)
-    addButton("Luarmor Script", function()
+    end)
+    gameScriptsChannel:Button("Luarmor Script", function()
         loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/730854e5b6499ee91deb1080e8e12ae3.lua"))()
-        print("Luarmor Script: Executado")
-    end, false)
-    addButton("Meme Sea", function()
+    end)
+    gameScriptsChannel:Button("Meme Sea", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ZaqueHub/ShinyHub-MMSea/main/MEME%20SEA%20PROTECT.txt"))()
-        print("Meme Sea: Executado")
-    end, false)
-    addButton("MindsFall", function()
+    end)
+    gameScriptsChannel:Button("MindsFall", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/MindsFall"))()
-        print("MindsFall: Executado")
-    end, false)
-    addButton("MM2 (beta)", function()
+    end)
+    gameScriptsChannel:Button("MM2 (beta)", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/MM2.lua"))()
-        print("MM2 (beta): Executado")
-    end, false)
-    addButton("MM2 (completo)", function()
+    end)
+    gameScriptsChannel:Button("MM2 (completo)", function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring'))()
-        print("MM2 (completo): Executado")
-    end, false)
-    addButton("Muder VS Xeriff", function()
+    end)
+    gameScriptsChannel:Button("Muder VS Xeriff", function()
         local Coins = 99999
         local args = {
             [1] = {
@@ -2520,118 +1293,110 @@ local function initializeGui()
             }
         }
         game:GetService("ReplicatedStorage").DailyReward122:FireServer(unpack(args))
-        print("Hack Recompensa Diária: Executado com " .. Coins .. " moedas")
-    end, false)
-    addButton("Prision Life", function()
+    end)
+    gameScriptsChannel:Button("Prision Life", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/TheMugenKing/Prison-Life/refs/heads/main/Update", true))()
-        print("Prision Life: Executado")
-    end, false)
-    addButton("R.E.P.O", function()
+    end)
+    gameScriptsChannel:Button("R.E.P.O", function()
         loadstring(game:HttpGet("https://rawscripts.net/raw/NEW-E.R.P.O.-OP-script-SOURCE-FREE-33663"))()
-        print("R.E.P.O: Executado")
-    end, false)
-    addButton("Race RNG Script", function()
+    end)
+    gameScriptsChannel:Button("Race RNG Script", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/RaceRNG"))()
-        print("Race RNG Script: Executado")
-    end, false)
-    addButton("Teleportar para o Spawn", function()
+    end)
+    gameScriptsChannel:Button("Teleportar para o Spawn", function()
         local player = game.Players.LocalPlayer
         local char = player.Character or player.CharacterAdded:Wait()
         local hrp = char:WaitForChild("HumanoidRootPart")
         local spawnLocation = workspace:WaitForChild("Spawns"):WaitForChild("SpawnLocation")
         hrp.CFrame = spawnLocation.CFrame
-        print("Teleportado para o Spawn!")
-    end, false)
-    addButton("Wizard West", function()
+    end)
+    gameScriptsChannel:Button("Wizard West", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/WizardWest"))()
-        print("Wizard West: Executado")
-    end, false)
-    addButton("Zombie Attack", function()
+    end)
+    gameScriptsChannel:Button("Zombie Attack", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
-        print("Zombie Attack: Executado")
-    end, false)
+    end)
+
+    -- Controle de Câmera Channel
+    local cameraControlChannel = mainServer:Channel("Controle de Câmera")
+    cameraControlChannel:Toggle("Free Cam (Simples)", false, function(state)
+        toggleFreeCam(state and 1 or 0)
+    end)
+    cameraControlChannel:Toggle("Free Cam (Cinemática)", false, function(state)
+        toggleFreeCam(state and 2 or 0)
+    end)
+    cameraControlChannel:Toggle("Rotação em Loop", false, function(state)
+        toggleLoopRotation(state)
+    end)
+    cameraControlChannel:Slider("Velocidade da Câmera", 10, 100, 40, function(value)
+        cameraSpeed = value
+        currentSpeed = slowMotionActive and slowMotionSpeed or value
+        guiState.cameraSpeed = value
+    end)
+    cameraControlChannel:Slider("Campo de Visão (FOV)", 30, 120, 70, function(value)
+        cameraFOV = value
+        guiState.cameraFOV = value
+        if cameraActive then
+            Workspace.CurrentCamera.FieldOfView = value
+        end
+    end)
+    cameraControlChannel:Slider("Sensibilidade do Mouse", 5, 50, 15, function(value)
+        mouseSensitivity = value / 100
+        currentMouseSensitivity = slowMotionActive and (value / 100) * 0.5 or value / 100
+        guiState.mouseSensitivity = value / 100
+    end)
+    cameraControlChannel:Toggle("Slow Motion", false, function(state)
+        toggleSlowMotion(state)
+    end)
+
+    -- Configurações Channel
+    local settingsChannel = mainServer:Channel("Configurações")
+    settingsChannel:Button("Salvar Configurações", function()
+        saveSettings()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Configurações",
+            Text = "Configurações salvas com sucesso!",
+            Duration = 5
+        })
+    end)
+    settingsChannel:Button("Carregar Configurações", function()
+        loadSettings()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Configurações",
+            Text = "Configurações carregadas com sucesso!",
+            Duration = 5
+        })
+    end)
+    settingsChannel:Button("Resetar Tudo", function()
+        terminateScript()
+        task.wait(0.5)
+        initializeGui()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Reset",
+            Text = "Todas as configurações foram resetadas!",
+            Duration = 5
+        })
+    end)
 
     local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then
-            return
-        end
+        if gameProcessed then return end
         if input.KeyCode == Enum.KeyCode.Delete then
             playSound("5852470908")
             terminateScript()
-        elseif input.KeyCode == Enum.KeyCode.F1 then
-            playSound("5852470908")
-			            if mainFrame then
-                isMinimized = not isMinimized
-                guiState.isMinimized = isMinimized
-                mainFrame.Visible = not isMinimized
-                floatingButton.Visible = isMinimized
-                playSound("5852470908")
-            end
-        elseif input.KeyCode == Enum.KeyCode.F2 then
-            toggleMouseLock()
         end
     end)
     table.insert(connections, inputConnection)
 
-    LocalPlayer.CharacterAdded:Connect(function(character)
-        reapplyGuiState(character)
-    end)
+    LocalPlayer.CharacterAdded:Connect(reapplyGuiState)
 
-    -- Notificação de inicialização
     StarterGui:SetCore("SendNotification", {
         Title = "Ferickinho Hub",
-        Text = "Bem-vindo ao Ferickinho Final Hub! Pressione F1 para abrir/fechar o menu, Delete para encerrar.",
+        Text = "Bem-vindo ao Ferickinho Final Hub! Pressione Delete para encerrar.",
         Duration = 10
     })
-
-    print("Ferickinho Final Hub: Inicializado com sucesso")
 end
 
--- Inicializar o GUI
-initializeGui()
-
--- Função para carregar scripts adicionais automaticamente com base no jogo
-local function loadGameSpecificScript()
-    local gameId = game.PlaceId
-    local gameScripts = {
-        [278822937] = function() -- MM2
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring"))()
-            print("MM2 (completo): Carregado automaticamente")
-        end,
-        [621129760] = function() -- Blox Fruits
-            local Settings = {
-                JoinTeam = "Pirates",
-                Translator = true
-            }
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Trustmenotcondom/QTONYX/refs/heads/main/QuantumOnyx.lua"))()
-            print("Blox Fruits: Carregado automaticamente")
-        end,
-        [2317712696] = function() -- Zombie Attack
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
-            print("Zombie Attack: Carregado automaticamente")
-        end
-        -- Adicione mais IDs de jogos e scripts conforme necessário
-    }
-
-    if gameScripts[gameId] then
-        gameScripts[gameId]()
-    end
-end
-
--- Carregar script específico do jogo, se aplicável
-loadGameSpecificScript()
-
--- Configurar reconexão em caso de desconexão
-game:BindToClose(function()
-    terminateScript()
-end)
-
--- Monitorar mudanças no personagem
-LocalPlayer.CharacterRemoving:Connect(function()
-    print("Personagem removido, aguardando novo personagem...")
-end)
-
--- Função para salvar configurações (opcional)
+-- Function to Save Settings
 local function saveSettings()
     local settings = {
         walkSpeed = guiState.walkSpeed,
@@ -2641,7 +1406,6 @@ local function saveSettings()
         espPlayerDistance = guiState.espPlayerDistance,
         espNPCDistance = guiState.espNPCDistance,
         followDistance = guiState.followDistance,
-        isMinimized = guiState.isMinimized,
         flyEnabled = guiState.flyEnabled,
         noclipEnabled = guiState.noclipEnabled,
         espPlayerEnabled = guiState.espPlayerEnabled,
@@ -2654,14 +1418,13 @@ local function saveSettings()
     local success, err = pcall(function()
         local json = HttpService:JSONEncode(settings)
         writefile("FerickinhoHubSettings.json", json)
-        print("Configurações salvas com sucesso")
     end)
     if not success then
         warn("Erro ao salvar configurações: " .. tostring(err))
     end
 end
 
--- Função para carregar configurações (opcional)
+-- Function to Load Settings
 local function loadSettings()
     local success, result = pcall(function()
         if isfile("FerickinhoHubSettings.json") then
@@ -2675,116 +1438,38 @@ local function loadSettings()
             guiState[key] = value
         end
         reapplyGuiState(PlayerCharacter)
-        print("Configurações carregadas com sucesso")
-    elseif not success then
-        warn("Erro ao carregar configurações: " .. tostring(result))
     end
 end
 
--- Carregar configurações salvas
+-- Initialize the GUI
+initializeGui()
 loadSettings()
 
--- Salvar configurações periodicamente
+-- Auto-save settings periodically
 spawn(function()
     while wait(60) do
         saveSettings()
     end
 end)
 
--- Função para atualizar a interface com base no estado
-local function updateGuiState()
-    for _, child in ipairs(scrollingFrame:GetChildren()) do
-        if child:IsA("TextButton") and child:FindFirstChildOfClass("Frame") then
-            local toggleIndicator = child:FindFirstChildOfClass("Frame")
-            local text = child.Text
-            if text == "Voar" then
-                toggleIndicator.BackgroundColor3 = guiState.flyEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            elseif text == "Noclip" then
-                toggleIndicator.BackgroundColor3 = guiState.noclipEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            elseif text == "Esp Player" then
-                toggleIndicator.BackgroundColor3 = guiState.espPlayerEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            elseif text == "Esp NPC" then
-                toggleIndicator.BackgroundColor3 = guiState.espNPCEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            elseif text == "Flashlight" then
-                toggleIndicator.BackgroundColor3 = guiState.flashlightEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            elseif text == "Fullbright" then
-                toggleIndicator.BackgroundColor3 = guiState.fullbrightEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            elseif text == "Pulo Infinito" then
-                toggleIndicator.BackgroundColor3 = guiState.infiniteJumpEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            elseif text == "Teleportar para Clique" then
-                toggleIndicator.BackgroundColor3 = guiState.clickTeleportEnabled and themeColors.ToggleOn or themeColors.ToggleOff
-            end
+-- Load game-specific scripts
+local function loadGameSpecificScript()
+    local gameId = game.PlaceId
+    local gameScripts = {
+        [278822937] = function() -- MM2
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring"))()
+        end,
+        [621129760] = function() -- Blox Fruits
+            local Settings = { JoinTeam = "Pirates", Translator = true }
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Trustmenotcondom/QTONYX/refs/heads/main/QuantumOnyx.lua"))()
+        end,
+        [2317712696] = function() -- Zombie Attack
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
         end
-    end
+    }
+    if gameScripts[gameId] then gameScripts[gameId]() end
 end
+loadGameSpecificScript()
 
--- Atualizar interface ao inicializar
-updateGuiState()
-
--- Adicionar botão para salvar configurações manualmente
-addSectionLabel("Configurações")
-addButton("Salvar Configurações", function()
-    saveSettings()
-    StarterGui:SetCore("SendNotification", {
-        Title = "Configurações",
-        Text = "Configurações salvas com sucesso!",
-        Duration = 5
-    })
-end, false)
-
--- Adicionar botão para carregar configurações manualmente
-addButton("Carregar Configurações", function()
-    loadSettings()
-    updateGuiState()
-    StarterGui:SetCore("SendNotification", {
-        Title = "Configurações",
-        Text = "Configurações carregadas com sucesso!",
-        Duration = 5
-    })
-end, false)
-
--- Adicionar controles de câmera
-addSectionLabel("Controle de Câmera")
-addButton("Free Cam (Simples)", function()
-    toggleFreeCam(cameraState == 1 and 0 or 1)
-end, true)
-addButton("Free Cam (Cinemática)", function()
-    toggleFreeCam(cameraState == 2 and 0 or 2)
-end, true)
-addButton("Rotação em Loop", function(state)
-    toggleLoopRotation(state)
-end, true)
-addSlider("Velocidade da Câmera", 40, 10, 100, function(value)
-    cameraSpeed = value
-    currentSpeed = slowMotionActive and slowMotionSpeed or value
-    guiState.cameraSpeed = value
-end)
-addSlider("Campo de Visão (FOV)", 70, 30, 120, function(value)
-    cameraFOV = value
-    guiState.cameraFOV = value
-    if cameraActive then
-        Workspace.CurrentCamera.FieldOfView = value
-    end
-end)
-addSlider("Sensibilidade do Mouse", 15, 5, 50, function(value)
-    mouseSensitivity = value / 100
-    currentMouseSensitivity = slowMotionActive and (value / 100) * 0.5 or value / 100
-    guiState.mouseSensitivity = value / 100
-end)
-addButton("Slow Motion", function(state)
-    toggleSlowMotion(state)
-end, true)
-
--- Adicionar botão para resetar todas as configurações
-addButton("Resetar Tudo", function()
-    terminateScript()
-    task.wait(0.5)
-    initializeGui()
-    StarterGui:SetCore("SendNotification", {
-        Title = "Reset",
-        Text = "Todas as configurações foram resetadas!",
-        Duration = 5
-    })
-end, false)
-
-print("Ferickinho Final Hub: Configuração completa")
+-- Handle script termination on game close
+game:BindToClose(terminateScript)
