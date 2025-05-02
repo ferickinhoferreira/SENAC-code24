@@ -2217,6 +2217,305 @@ local function toggleMouseLock()
     print("Mouse: " .. (mouseLocked and "Travado" or "Destravado"))
 end
 
+-- Interação Instantânea com ProximityPrompts
+getgenv().AutoInteract = false
+getgenv().InteractDelay = 0.25
+local function TryInteract(prompt)
+    if prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.HoldDuration > 0 then
+        pcall(function()
+            prompt.HoldDuration = 0
+            fireproximityprompt(prompt)
+        end)
+    end
+end
+task.spawn(function()
+    while true do
+        if getgenv().AutoInteract then
+            for _, prompt in ipairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+                    TryInteract(prompt)
+                end
+            end
+        end
+        task.wait(getgenv().InteractDelay)
+    end
+end)
+workspace.DescendantAdded:Connect(function(obj)
+    if getgenv().AutoInteract and obj:IsA("ProximityPrompt") then
+        task.wait(0.1)
+        TryInteract(obj)
+    end
+end)
+
+-- Salvar Posição da Morte
+getgenv().CustomRespawnEnabled = false
+getgenv().ForwardStuds = 0
+local lastDeathPosition = nil
+local lastDeathLookVector = nil
+local function saveDeathPosition(character)
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if root then
+        lastDeathPosition = root.Position
+        lastDeathLookVector = root.CFrame.LookVector
+    end
+end
+local function onCharacterSpawn(character)
+    if getgenv().CustomRespawnEnabled and lastDeathPosition and lastDeathLookVector then
+        local root = character:WaitForChild("HumanoidRootPart", 5)
+        if root then
+            task.wait(0.1)
+            local offset = lastDeathLookVector.Unit * getgenv().ForwardStuds
+            root.CFrame = CFrame.new(lastDeathPosition + offset)
+        end
+    end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.Died:Connect(function()
+            saveDeathPosition(character)
+        end)
+    end
+end
+LocalPlayer.CharacterAdded:Connect(onCharacterSpawn)
+if PlayerCharacter then
+    onCharacterSpawn(PlayerCharacter)
+end
+
+-- Remover Neblina (Fog)
+local cleanSettings = {
+    FogStart = 100000,
+    FogEnd = 1000000,
+    FogColor = Color3.new(1, 1, 1),
+    GlobalShadows = false,
+    Brightness = 2,
+    OutdoorAmbient = Color3.fromRGB(128, 128, 128),
+    Ambient = Color3.fromRGB(128, 128, 128),
+    EnvironmentDiffuseScale = 0.25,
+    EnvironmentSpecularScale = 0.25,
+    ShadowSoftness = 0.5,
+}
+local function applyCleanLighting()
+    for property, value in pairs(cleanSettings) do
+        Lighting[property] = value
+    end
+end
+local function protectSettings()
+    for property, value in pairs(cleanSettings) do
+        Lighting:GetPropertyChangedSignal(property):Connect(function()
+            if Lighting[property] ~= value then
+                Lighting[property] = value
+            end
+        end)
+    end
+end
+
+-- Informações do Dono do Jogo
+local function showOwnerInfo()
+    local ownerId = game.CreatorId
+    local ownerName = Players:GetNameFromUserIdAsync(ownerId)
+    local thumbType = Enum.ThumbnailType.HeadShot
+    local thumbSize = Enum.ThumbnailSize.Size420x420
+    local content, isReady = Players:GetUserThumbnailAsync(ownerId, thumbType, thumbSize)
+
+    local infoFrame = Instance.new("Frame")
+    infoFrame.Size = UDim2.new(0, 300, 0, 200)
+    infoFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+    infoFrame.BackgroundColor3 = themeColors.Background
+    infoFrame.ZIndex = 10100
+    infoFrame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = infoFrame
+
+    local avatarImage = Instance.new("ImageLabel")
+    avatarImage.Size = UDim2.new(0, 100, 0, 100)
+    avatarImage.Position = UDim2.new(0.5, -50, 0, 10)
+    avatarImage.BackgroundTransparency = 1
+    avatarImage.Image = isReady and content or "rbxassetid://0"
+    avatarImage.ZIndex = 10101
+    avatarImage.Parent = infoFrame
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0, 30)
+    nameLabel.Position = UDim2.new(0, 0, 0, 120)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = "Nome: " .. ownerName
+    nameLabel.TextColor3 = themeColors.Text
+    nameLabel.Font = Enum.Font.Gotham
+    nameLabel.TextSize = 14
+    nameLabel.ZIndex = 10101
+    nameLabel.Parent = infoFrame
+
+    local idLabel = Instance.new("TextLabel")
+    idLabel.Size = UDim2.new(1, 0, 0, 30)
+    idLabel.Position = UDim2.new(0, 0, 0, 150)
+    idLabel.BackgroundTransparency = 1
+    idLabel.Text = "ID: " .. tostring(ownerId)
+    idLabel.TextColor3 = themeColors.Text
+    idLabel.Font = Enum.Font.Gotham
+    idLabel.TextSize = 14
+    idLabel.ZIndex = 10101
+    idLabel.Parent = infoFrame
+
+    local copyButton = Instance.new("TextButton")
+    copyButton.Size = UDim2.new(0, 50, 0, 50)
+    copyButton.Position = UDim2.new(0.5, -25, 0, 180)
+    copyButton.BackgroundColor3 = themeColors.Button
+    copyButton.Text = "📋"
+    copyButton.TextColor3 = themeColors.Text
+    copyButton.Font = Enum.Font.Gotham
+    copyButton.TextSize = 20
+    copyButton.ZIndex = 10101
+    copyButton.Parent = infoFrame
+
+    copyButton.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(tostring(ownerId))
+            print("ID do dono copiado: " .. ownerId)
+        else
+            print("Funcionalidade de copiar não disponível.")
+        end
+    end)
+
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -35, 0, 5)
+    closeButton.BackgroundColor3 = themeColors.Button
+    closeButton.Text = "X"
+    closeButton.TextColor3 = themeColors.Text
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 16
+    closeButton.ZIndex = 10101
+    closeButton.Parent = infoFrame
+
+    closeButton.MouseButton1Click:Connect(function()
+        infoFrame:Destroy()
+    end)
+end
+
+-- Invisibilidade
+local ScriptStarted = false
+local Transparency = true
+local NoClip = false
+local RealCharacter = PlayerCharacter or LocalPlayer.CharacterAdded:Wait()
+local IsInvisible = false
+RealCharacter.Archivable = true
+local FakeCharacter = RealCharacter:Clone()
+local Part = Instance.new("Part", workspace)
+Part.Anchored = true
+Part.Size = Vector3.new(200, 1, 200)
+Part.CFrame = CFrame.new(0, -500, 0)
+Part.CanCollide = true
+FakeCharacter.Parent = workspace
+FakeCharacter.HumanoidRootPart.CFrame = Part.CFrame * CFrame.new(0, 5, 0)
+for i, v in pairs(RealCharacter:GetChildren()) do
+    if v:IsA("LocalScript") then
+        local clone = v:Clone()
+        clone.Disabled = true
+        clone.Parent = FakeCharacter
+    end
+end
+if Transparency then
+    for i, v in pairs(FakeCharacter:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Transparency = 0.7
+        end
+    end
+end
+local CanInvis = true
+local function RealCharacterDied()
+    CanInvis = false
+    RealCharacter:Destroy()
+    RealCharacter = LocalPlayer.Character
+    CanInvis = true
+    IsInvisible = false
+    FakeCharacter:Destroy()
+    workspace.CurrentCamera.CameraSubject = RealCharacter.Humanoid
+    RealCharacter.Archivable = true
+    FakeCharacter = RealCharacter:Clone()
+    Part:Destroy()
+    Part = Instance.new("Part", workspace)
+    Part.Anchored = true
+    Part.Size = Vector3.new(200, 1, 200)
+    Part.CFrame = CFrame.new(9999, 9999, 9999)
+    Part.CanCollide = true
+    FakeCharacter.Parent = workspace
+    FakeCharacter.HumanoidRootPart.CFrame = Part.CFrame * CFrame.new(0, 5, 0)
+    for i, v in pairs(RealCharacter:GetChildren()) do
+        if v:IsA("LocalScript") then
+            local clone = v:Clone()
+            clone.Disabled = true
+            clone.Parent = FakeCharacter
+        end
+    end
+    if Transparency then
+        for i, v in pairs(FakeCharacter:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.Transparency = 0.7
+            end
+        end
+    end
+    RealCharacter.Humanoid.Died:Connect(function()
+        RealCharacter:Destroy()
+        FakeCharacter:Destroy()
+    end)
+    LocalPlayer.CharacterAppearanceLoaded:Connect(RealCharacterDied)
+end
+RealCharacter.Humanoid.Died:Connect(function()
+    RealCharacter:Destroy()
+    FakeCharacter:Destroy()
+end)
+LocalPlayer.CharacterAppearanceLoaded:Connect(RealCharacterDied)
+local PseudoAnchor
+RunService.RenderStepped:Connect(function()
+    if PseudoAnchor ~= nil then
+        PseudoAnchor.CFrame = Part.CFrame * CFrame.new(0, 5, 0)
+    end
+    if NoClip then
+        FakeCharacter.Humanoid:ChangeState(11)
+    end
+end)
+PseudoAnchor = FakeCharacter.HumanoidRootPart
+local function Invisible()
+    if IsInvisible == false then
+        local StoredCF = RealCharacter.HumanoidRootPart.CFrame
+        RealCharacter.HumanoidRootPart.CFrame = FakeCharacter.HumanoidRootPart.CFrame
+        FakeCharacter.HumanoidRootPart.CFrame = StoredCF
+        RealCharacter.Humanoid:UnequipTools()
+        LocalPlayer.Character = FakeCharacter
+        workspace.CurrentCamera.CameraSubject = FakeCharacter.Humanoid
+        PseudoAnchor = RealCharacter.HumanoidRootPart
+        for i, v in pairs(FakeCharacter:GetChildren()) do
+            if v:IsA("LocalScript") then
+                v.Disabled = false
+            end
+        end
+        IsInvisible = true
+    else
+        local StoredCF = FakeCharacter.HumanoidRootPart.CFrame
+        FakeCharacter.HumanoidRootPart.CFrame = RealCharacter.HumanoidRootPart.CFrame
+        RealCharacter.HumanoidRootPart.CFrame = StoredCF
+        FakeCharacter.Humanoid:UnequipTools()
+        LocalPlayer.Character = RealCharacter
+        workspace.CurrentCamera.CameraSubject = RealCharacter.Humanoid
+        PseudoAnchor = FakeCharacter.HumanoidRootPart
+        for i, v in pairs(FakeCharacter:GetChildren()) do
+            if v:IsA("LocalScript") then
+                v.Disabled = true
+            end
+        end
+        IsInvisible = false
+    end
+end
+UserInputService.InputBegan:Connect(function(key, gamep)
+    if gamep then return end
+    if key.KeyCode.Name:lower() == Keybind:lower() and CanInvis and RealCharacter and FakeCharacter then
+        if RealCharacter:FindFirstChild("HumanoidRootPart") and FakeCharacter:FindFirstChild("HumanoidRootPart") then
+            Invisible()
+        end
+    end
+end)
+
 -- Main Function to Initialize the GUI
 local function initializeGui()
     createGui()
@@ -2229,6 +2528,9 @@ local function initializeGui()
     end
 
     addSectionLabel("Modificações do Jogador")
+    addButton("Ficar invisivel", function()
+        Invisible()
+    end, false)
     addButton("Teleportar para clique", function(state)
         mouse = game.Players.LocalPlayer:GetMouse()
         tool = Instance.new("Tool")
@@ -2270,30 +2572,47 @@ local function initializeGui()
     end, true)
 
     addSectionLabel("Modificações Visuais")
+	-- Remover Neblina
+    addButton("Remover Neblina", function()
+        applyCleanLighting()
+        protectSettings()
+        print("Neblina removida e configurações protegidas.")
+    end, false)
+	addButton("Fullbright", function(state)
+        toggleFullbright(state)
+    end, true)
+	addButton("Flashlight", function(state)
+        toggleFlashlight(state)
+    end, true)
     addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
         flashlightRange = value
         guiState.flashlightRange = value
     end)
-    addSlider("Distância ESP NPC", 500, 50, 1000, function(value)
-        espNPCDistance = value
-        guiState.espNPCDistance = value
-    end)
-    addSlider("Distância ESP Player", 500, 50, 1000, function(value)
-        espPlayerDistance = value
-        guiState.espPlayerDistance = value
-    end)
     addButton("Esp NPC", function(state)
         toggleEspNPC(state)
     end, true)
+	addSlider("Distância ESP NPC", 500, 50, 1000, function(value)
+        espNPCDistance = value
+        guiState.espNPCDistance = value
+    end)
     addButton("Esp Player", function(state)
         toggleEspPlayer(state)
     end, true)
-    addButton("Flashlight", function(state)
-        toggleFlashlight(state)
+	addSlider("Distância ESP Player", 500, 50, 1000, function(value)
+        espPlayerDistance = value
+        guiState.espPlayerDistance = value
+    end)
+    
+
+	addSectionLabel("Respawn Customizado")
+    addButton("Ativar Respawn na Morte", function(state)
+        getgenv().CustomRespawnEnabled = state
+        print("Respawn Customizado: " .. (state and "Ativado" or "Desativado"))
     end, true)
-    addButton("Fullbright", function(state)
-        toggleFullbright(state)
-    end, true)
+    addSlider("Distância à Frente", 0, 0, 100, function(value)
+        getgenv().ForwardStuds = value
+        print("Distância à frente ajustada para: " .. value .. " studs")
+    end)
 
     addSectionLabel("Administração")
     addButton("📌 Infinite Yield Scripts", function()
@@ -2311,6 +2630,41 @@ local function initializeGui()
     addButton("📌 SkyHub", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/main/SkyHub.txt"))()
         print("📌 SkyHub: Executado")
+    end, false)
+   
+    addSectionLabel("Servidor")
+	addButton("Morrer", function()
+        local Players = game:GetService("Players")
+		local player = Players.LocalPlayer
+
+		-- Função para matar o jogador
+		local function KillPlayer()
+			local character = player.Character
+			if character and character:FindFirstChild("Humanoid") then
+				character.Humanoid.Health = 0
+			end
+		end
+
+		-- Chamada direta
+		KillPlayer()
+    end, false)
+	addButton("Rejoin", function()
+        local player = Players.LocalPlayer
+		local placeId = game.PlaceId
+
+		-- Função para reentrar no mesmo servidor
+		local function Rejoin()
+			local success, result = pcall(function()
+				TeleportService:Teleport(placeId, player)
+			end)
+
+			if not success then
+				warn("Falha ao tentar reentrar:", result)
+			end
+		end
+
+		-- Chame a função quando quiser dar rejoin
+		Rejoin()
     end, false)
 
     addSectionLabel("Espião")
@@ -2495,14 +2849,6 @@ local function initializeGui()
     addSectionLabel("Checkpoints")
     createCheckpointList()
 
-    addSectionLabel("Controle de Teleporte")
-    addButton("Teleportar para o Cursor/Toque", function()
-        performClickTeleport()
-    end, false)
-    addButton("Teleportar para Clique", function(state)
-        toggleClickTeleport(state)
-    end, true)
-
     addSectionLabel("Controle de Seção")
     addButton("Copiar ID da Seção", function()
         if setclipboard then
@@ -2527,43 +2873,61 @@ local function initializeGui()
     corner.Parent = sectionIdBox
 
     addButton("Teleportar para Seção", function()
-    local placeId = tonumber(sectionIdBox.Text)
-    if placeId then
-        TeleportService:Teleport(placeId, LocalPlayer)
-        print("Teleportando para a seção ID: " .. placeId)
-    else
-        print("ID da seção inválido. Insira um número válido.")
-    end
-end, false)
-createSectionList()
+        local placeId = tonumber(sectionIdBox.Text)
+        if placeId then
+            TeleportService:Teleport(placeId, LocalPlayer)
+            print("Teleportando para a seção ID: " .. placeId)
+        else
+            print("ID da seção inválido. Insira um número válido.")
+        end
+    end, false)
+    createSectionList()
 
-addSectionLabel("Utilitários")
-addButton("Travar/Destravar Mouse", function()
-    toggleMouseLock()
-end, false)
-addButton("Terminar Script", function()
-    terminateScript()
-    print("Script terminado.")
-end, false)
+    addSectionLabel("Utilitários")
+    addButton("Travar/Destravar Mouse", function()
+        toggleMouseLock()
+    end, false)
+    addButton("Terminar Script", function()
+        terminateScript()
+        print("Script terminado.")
+    end, false)
 
--- Reapply GUI state on character reset
-LocalPlayer.CharacterAdded:Connect(function(character)
-    reapplyGuiState(character)
-end)
+    -- Interação Instantânea
+    addSectionLabel("Interação Instantânea")
+    addButton("Ativar Interação Automática", function(state)
+        getgenv().AutoInteract = state
+        print("Interação Automática: " .. (state and "Ativada" or "Desativada"))
+    end, true)
+    addSlider("Delay Interação", 0.25, 0.1, 1.0, function(value)
+        getgenv().InteractDelay = value
+        print("Delay Interação ajustado para: " .. value .. "s")
+    end)
 
--- Initial state application
-reapplyGuiState(PlayerCharacter)
+    -- outros
+	addSectionLabel("Outros")
+    -- Informações do Dono
+    addButton("Mostrar Info do Dono", function()
+        showOwnerInfo()
+    end, false)
 
--- Bind F3 to teleport to mouse
-local teleportKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.F3 then
-        teleportToMouse()
-    end
-end)
-table.insert(connections, teleportKeyConnection)
+    -- Reapply GUI state on character reset
+    LocalPlayer.CharacterAdded:Connect(function(character)
+        reapplyGuiState(character)
+    end)
 
-print("Ferickinho Hub Final carregado com sucesso!")
+    -- Initial state application
+    reapplyGuiState(PlayerCharacter)
+
+    -- Bind F3 to teleport to mouse
+    local teleportKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.F3 then
+            teleportToMouse()
+        end
+    end)
+    table.insert(connections, teleportKeyConnection)
+
+    print("Ferickinho Hub Final carregado com sucesso!")
 end
 
 -- Error Handling
