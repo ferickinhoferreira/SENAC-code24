@@ -46,7 +46,7 @@ local espNPCEnabled = false
 local flashlightEnabled = false
 local fullbrightEnabled = false
 local infiniteJumpEnabled = false
-local clickTeleportEnabled = false -- Nova variável para teleporte por clique
+local clickTeleportEnabled = false
 local flySpeed = 50
 local flashlightRange = 60
 local espPlayerDistance = 500
@@ -94,48 +94,8 @@ local guiState = {
     espPlayerDistance = 500,
     espNPCDistance = 500,
     followDistance = 5,
-    clickTeleportEnabled = false -- Adicionado ao guiState
+    clickTeleportEnabled = false
 }
-
--- Camera State Variables
-local cameraActive = false
-local cameraState = 0 -- 0: Desativado, 1: Free Cam Simples, 2: Free Cam com Cinematic Bars
-local cameraSpeed = 40
-local cameraFOV = 70
-local cameraYaw = 0
-local cameraPitch = 0
-local originalCameraType = Enum.CameraType.Custom
-local originalCameraCFrame = nil
-local originalWalkSpeed = PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") and PlayerCharacter.Humanoid.WalkSpeed or 16
-local originalJumpPower = PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") and PlayerCharacter.Humanoid.JumpPower or 50
-local originalMouseBehavior = UserInputService.MouseBehavior
-local mouseSensitivity = 0.15
-local cinematicBarsActive = false
-local topCinematicBar = nil
-local bottomCinematicBar = nil
-local interfaceHidden = false
-local guiStates = {}
-local mainFrameVisibleBeforeCamera = true
-local characterControlActive = false
-local slowMotionActive = false
-local normalSpeed = 40
-local slowMotionSpeed = 8
-local normalMouseSensitivity = 0.15
-local currentSpeed = normalSpeed
-local currentMouseSensitivity = normalMouseSensitivity
-local speedTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-local loopRotationEnabled = false
-local loopRotationSpeed = 30
-local loopRotationCenter = nil
-
--- Atualizar guiState
-guiState.cameraActive = false
-guiState.cameraState = 0
-guiState.cameraSpeed = 40
-guiState.cameraFOV = 70
-guiState.mouseSensitivity = 0.15
-guiState.slowMotionActive = false
-guiState.loopRotationEnabled = false
 
 -- Theme Variables
 local themeColors = {
@@ -553,10 +513,7 @@ local function createGui()
         if flashlightEnabled then activeScripts = activeScripts + 1 end
         if fullbrightEnabled then activeScripts = activeScripts + 1 end
         if infiniteJumpEnabled then activeScripts = activeScripts + 1 end
-        if cameraActive then activeScripts = activeScripts + 1 end
-        if slowMotionActive then activeScripts = activeScripts + 1 end
-        if loopRotationEnabled then activeScripts = activeScripts + 1 end
-        if clickTeleportEnabled then activeScripts = activeScripts + 1 end -- Adicionado
+        if clickTeleportEnabled then activeScripts = activeScripts + 1 end
         scriptsLabel.Text = string.format("Scripts: %d", activeScripts)
         playersLabel.Text = string.format("Jogadores: %d", #Players:GetPlayers())
     end)
@@ -704,7 +661,6 @@ local function addButton(text, callback, isToggle)
         toggleCorner.Parent = toggleIndicator
         toggleIndicator.Parent = button
 
-        -- Caixa de Loop com TextLabel
         loopFrame = Instance.new("Frame")
         loopFrame.Size = UDim2.new(0, 50, 0, 20)
         loopFrame.Position = UDim2.new(1, -85, 0.5, -10)
@@ -729,7 +685,6 @@ local function addButton(text, callback, isToggle)
         loopLabelCorner.Parent = loopLabel
         loopLabel.Parent = loopFrame
 
-        -- Botão de Reset
         resetButton = Instance.new("TextButton")
         resetButton.Size = UDim2.new(0, 50, 0, 20)
         resetButton.Position = UDim2.new(1, -140, 0.5, -10)
@@ -843,7 +798,6 @@ local function addSlider(name, default, min, max, callback)
     sliderBoxCorner.Parent = sliderBox
     sliderBox.Parent = holder
 
-    -- Caixa de Loop com TextLabel
     local loopFrame = Instance.new("Frame")
     loopFrame.Size = UDim2.new(0, 50, 0, 20)
     loopFrame.Position = UDim2.new(0.67, 0, 0, 2)
@@ -868,7 +822,6 @@ local function addSlider(name, default, min, max, callback)
     loopLabelCorner.Parent = loopLabel
     loopLabel.Parent = loopFrame
 
-    -- Botão de Reset
     local resetButton = Instance.new("TextButton")
     resetButton.Size = UDim2.new(0, 50, 0, 20)
     resetButton.Position = UDim2.new(0.56, 0, 0, 2)
@@ -1037,14 +990,9 @@ local function terminateScript()
     fullbrightEnabled = false
     infiniteJumpEnabled = false
     followEnabled = false
-    cameraActive = false
-    cameraState = 0
-    slowMotionActive = false
-    loopRotationEnabled = false
-    clickTeleportEnabled = false -- Adicionado
+    clickTeleportEnabled = false
     selectedFollowPlayer = nil
 
-    -- Cancelar todos os loops ativos
     for name, loop in pairs(activeLoops) do
         task.cancel(loop)
         activeLoops[name] = nil
@@ -1098,10 +1046,6 @@ local function terminateScript()
     espPlayerDistance = defaultSettings.EspPlayerDistance
     espNPCDistance = defaultSettings.EspNPCDistance
     followDistance = defaultSettings.FollowDistance
-    cameraSpeed = 40
-    cameraFOV = 70
-    mouseSensitivity = 0.15
-    loopRotationSpeed = 30
 
     Lighting.Brightness = defaultLighting.Brightness
     Lighting.FogEnd = defaultLighting.FogEnd
@@ -1110,15 +1054,6 @@ local function terminateScript()
     Lighting.OutdoorAmbient = defaultLighting.OutdoorAmbient
     Lighting.Technology = defaultLighting.Technology
 
-    if topCinematicBar then
-        topCinematicBar:Destroy()
-        topCinematicBar = nil
-    end
-    if bottomCinematicBar then
-        bottomCinematicBar:Destroy()
-        bottomCinematicBar = nil
-    end
-    cinematicBarsActive = false
     UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     UserInputService.MouseIconEnabled = true
     ContextActionService:UnbindAction("BlockMovement")
@@ -1546,13 +1481,12 @@ local function createPlayerList()
     local function addPlayerEntry(player)
         if player == LocalPlayer then return end
         local entry = Instance.new("Frame")
-        entry.Size = UDim2.new(1, -10, 0, 60)  -- Aumentei a altura para acomodar o ID
+        entry.Size = UDim2.new(1, -10, 0, 60)
         entry.BackgroundTransparency = 1
         entry.ZIndex = 15
         entry.Parent = playerListFrame
         entry.Visible = true
 
-        -- Avatar do Jogador
         local avatarImage = Instance.new("ImageLabel")
         avatarImage.Size = UDim2.new(0, 50, 0, 50)
         avatarImage.Position = UDim2.new(0, 5, 0, 5)
@@ -1560,7 +1494,6 @@ local function createPlayerList()
         avatarImage.ZIndex = 16
         avatarImage.Parent = entry
 
-        -- Obter a imagem do avatar
         local userId = player.UserId
         local thumbType = Enum.ThumbnailType.HeadShot
         local thumbSize = Enum.ThumbnailSize.Size48x48
@@ -1568,10 +1501,9 @@ local function createPlayerList()
         if isReady then
             avatarImage.Image = content
         else
-            avatarImage.Image = "rbxassetid://0"  -- Imagem padrão se não estiver pronta
+            avatarImage.Image = "rbxassetid://0"
         end
 
-        -- Nome e Apelido do Jogador
         local nameLabel = Instance.new("TextLabel")
         nameLabel.Name = "PlayerName"
         nameLabel.Size = UDim2.new(0.5, -60, 0, 30)
@@ -1592,7 +1524,6 @@ local function createPlayerList()
             nameLabel.Text = "@" .. userName
         end
 
-        -- ID do Jogador
         local idLabel = Instance.new("TextLabel")
         idLabel.Size = UDim2.new(0.5, -60, 0, 20)
         idLabel.Position = UDim2.new(0, 60, 0, 35)
@@ -1605,7 +1536,6 @@ local function createPlayerList()
         idLabel.ZIndex = 16
         idLabel.Parent = entry
 
-        -- Botão de Copiar ID
         local copyButton = Instance.new("TextButton")
         copyButton.Size = UDim2.new(0, 20, 0, 20)
         copyButton.Position = UDim2.new(0.5, -55, 0, 35)
@@ -1627,7 +1557,6 @@ local function createPlayerList()
             end
         end)
 
-        -- Botão de Teleporte
         local teleportButton = Instance.new("TextButton")
         teleportButton.Size = UDim2.new(0.2, 0, 0, 30)
         teleportButton.Position = UDim2.new(0.55, 0, 0, 5)
@@ -1642,7 +1571,6 @@ local function createPlayerList()
         teleportCorner.Parent = teleportButton
         teleportButton.Parent = entry
 
-        -- Botão de Grudar
         local followButton = Instance.new("TextButton")
         followButton.Size = UDim2.new(0.2, 0, 0, 30)
         followButton.Position = UDim2.new(0.8, 0, 0, 5)
@@ -1760,11 +1688,9 @@ local function setupClassicCamera()
         LocalPlayer.CameraMinZoomDistance = 0.5
 
         local function forceClassicCamera()
-            if not cameraActive then
-                LocalPlayer.CameraMode = Enum.CameraMode.Classic
-                Camera.CameraType = Enum.CameraType.Custom
-                Camera.CameraSubject = LocalPlayer.Character and (LocalPlayer.Character:FindFirstChild("Humanoid") or LocalPlayer.Character:FindFirstChildOfClass("Humanoid"))
-            end
+            LocalPlayer.CameraMode = Enum.CameraMode.Classic
+            Camera.CameraType = Enum.CameraType.Custom
+            Camera.CameraSubject = LocalPlayer.Character and (LocalPlayer.Character:FindFirstChild("Humanoid") or LocalPlayer.Character:FindFirstChildOfClass("Humanoid"))
         end
 
         LocalPlayer.CharacterAdded:Connect(function()
@@ -1812,16 +1738,7 @@ local function reapplyGuiState(character)
     if guiState.infiniteJumpEnabled then
         toggleInfiniteJump(true)
     end
-    if guiState.cameraActive then
-        toggleFreeCam(guiState.cameraState)
-    end
-    if guiState.slowMotionActive then
-        toggleSlowMotion(true)
-    end
-    if guiState.loopRotationEnabled then
-        loopRotationEnabled = true
-    end
-    if guiState.clickTeleportEnabled then -- Adicionado
+    if guiState.clickTeleportEnabled then
         clickTeleportEnabled = true
     end
 
@@ -1867,293 +1784,6 @@ local function reapplyGuiState(character)
     end
 end
 
--- Function to Block/Unblock Player Movement
-local function blockPlayerMovement(block)
-    local humanoid = PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid")
-    if not humanoid then
-        print("Erro: Humanoid não encontrado.")
-        return
-    end
-    if block then
-        originalWalkSpeed = humanoid.WalkSpeed
-        originalJumpPower = humanoid.JumpPower
-        humanoid.WalkSpeed = 0
-        humanoid.JumpPower = 0
-        humanoid.AutoRotate = false -- Impede rotação automática do personagem
-        -- Bloquear todas as ações de movimento
-        ContextActionService:BindAction("BlockMovement", function()
-            return Enum.ContextActionResult.Sink
-        end, false,
-            Enum.PlayerActions.CharacterForward,
-            Enum.PlayerActions.CharacterBackward,
-            Enum.PlayerActions.CharacterLeft,
-            Enum.PlayerActions.CharacterRight,
-            Enum.PlayerActions.CharacterJump,
-            Enum.KeyCode.W,
-            Enum.KeyCode.A,
-            Enum.KeyCode.S,
-            Enum.KeyCode.D,
-            Enum.KeyCode.Space
-        )
-    else
-        humanoid.WalkSpeed = originalWalkSpeed > 0 and originalWalkSpeed or guiState.walkSpeed
-        humanoid.JumpPower = originalJumpPower > 0 and originalJumpPower or guiState.jumpPower
-        humanoid.AutoRotate = true -- Restaura rotação automática
-        ContextActionService:UnbindAction("BlockMovement")
-    end
-end
-
--- Function to Setup Mouse
-local function setupMouse(enabled)
-    if enabled then
-        originalMouseBehavior = UserInputService.MouseBehavior
-        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-        UserInputService.MouseIconEnabled = false
-    else
-        UserInputService.MouseBehavior = originalMouseBehavior or Enum.MouseBehavior.Default
-        UserInputService.MouseIconEnabled = true
-    end
-end
-
--- Function to Hide/Show Interface
-local function toggleInterface(hide)
-    if hide then
-        interfaceHidden = true
-        guiStates = {}
-        for _, gui in ipairs(LocalPlayer:WaitForChild("PlayerGui"):GetChildren()) do
-            if gui:IsA("ScreenGui") and gui ~= screenGui and gui.Name ~= "CoreGui" then
-                guiStates[gui] = gui.Enabled
-                gui.Enabled = false
-            end
-        end
-
-        -- Esconder elementos visuais do backpack sem desativar funcionalidade
-        local coreGui = game:GetService("CoreGui")
-        local backpackGui = coreGui:FindFirstChild("RobloxGui") -- Alterado para RobloxGui, que contém o Backpack
-        if backpackGui then
-            for _, child in ipairs(backpackGui:GetDescendants()) do
-                if child:IsA("GuiObject") and child.Name ~= "ControlFrame" then -- Evita interferir em outros controles
-                    guiStates[child] = child.Visible
-                    child.Visible = false
-                end
-            end
-        end
-
-        mainFrameVisibleBeforeCamera = mainFrame.Visible
-        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
-        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
-        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
-    else
-        if interfaceHidden then
-            for gui, state in pairs(guiStates) do
-                if gui and gui.Parent then
-                    if gui:IsA("ScreenGui") then
-                        gui.Enabled = state
-                    elseif gui:IsA("GuiObject") then
-                        gui.Visible = state
-                    end
-                end
-            end
-            guiStates = {}
-            mainFrame.Visible = mainFrameVisibleBeforeCamera
-            StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true)
-            StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
-            StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, true)
-            -- Forçar visibilidade dos itens do Backpack
-            local coreGui = game:GetService("CoreGui")
-            local backpackGui = coreGui:FindFirstChild("RobloxGui")
-            if backpackGui then
-                for _, child in ipairs(backpackGui:GetDescendants()) do
-                    if child:IsA("GuiObject") and guiStates[child] ~= nil then
-                        child.Visible = guiStates[child]
-                    end
-                end
-            end
-            interfaceHidden = false
-        end
-    end
-end
-
--- Function to Restore Default Camera
-local function restoreDefaultCamera()
-    local cam = Workspace.CurrentCamera
-    cam.CameraType = Enum.CameraType.Custom
-    cam.FieldOfView = 70
-    if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
-        cam.CameraSubject = PlayerCharacter.Humanoid
-    end
-    blockPlayerMovement(false)
-    setupMouse(false)
-    toggleInterface(false)
-    if topCinematicBar then
-        topCinematicBar:Destroy()
-        topCinematicBar = nil
-    end
-    if bottomCinematicBar then
-        bottomCinematicBar:Destroy()
-        bottomCinematicBar = nil
-    end
-    cinematicBarsActive = false
-    characterControlActive = false
-    loopRotationEnabled = false
-    loopRotationCenter = nil
-end
-
--- Function to Control Free Cam
-local function toggleFreeCam(state)
-    if not PlayerCharacter or not PlayerCharacter:FindFirstChild("HumanoidRootPart") then
-        print("Erro: Personagem ou HumanoidRootPart não encontrado.")
-        return
-    end
-
-    cameraState = state
-    cameraActive = state > 0
-    guiState.cameraState = state
-    guiState.cameraActive = cameraActive
-    print("Free Cam: " .. (cameraActive and "Ativada (Estado: " .. state .. ")" or "Desativada"))
-
-    if cameraActive then
-        originalCameraType = Workspace.CurrentCamera.CameraType
-        originalCameraCFrame = Workspace.CurrentCamera.CFrame
-        Workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
-        Workspace.CurrentCamera.FieldOfView = cameraFOV
-
-        local lookVector = originalCameraCFrame.LookVector
-        cameraYaw = math.deg(math.atan2(lookVector.X, lookVector.Z))
-        cameraPitch = math.deg(math.asin(lookVector.Y))
-
-        blockPlayerMovement(true) -- Bloqueia movimento por padrão
-        setupMouse(true)
-        toggleInterface(true)
-
-        if cameraState == 2 then
-            cinematicBarsActive = true
-            topCinematicBar = Instance.new("Frame")
-            topCinematicBar.Size = UDim2.new(1, 0, 0, 120)
-            topCinematicBar.Position = UDim2.new(0, 0, 0, -60)
-            topCinematicBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            topCinematicBar.BorderSizePixel = 0
-            topCinematicBar.ZIndex = 20
-            topCinematicBar.Parent = screenGui
-
-            bottomCinematicBar = Instance.new("Frame")
-            bottomCinematicBar.Size = UDim2.new(1, 0, 0, 200)
-            bottomCinematicBar.Position = UDim2.new(0, 0, 1, -140)
-            bottomCinematicBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            bottomCinematicBar.BorderSizePixel = 0
-            bottomCinematicBar.ZIndex = 20
-            bottomCinematicBar.Parent = screenGui
-        else
-            if topCinematicBar then
-                topCinematicBar:Destroy()
-                topCinematicBar = nil
-            end
-            if bottomCinematicBar then
-                bottomCinematicBar:Destroy()
-                bottomCinematicBar = nil
-            end
-            cinematicBarsActive = false
-        end
-
-        local cameraConnection
-        cameraConnection = RunService.RenderStepped:Connect(function(dt)
-            if not cameraActive then
-                restoreDefaultCamera()
-                if cameraConnection then
-                    cameraConnection:Disconnect()
-                end
-                return
-            end
-
-            local cam = Workspace.CurrentCamera
-            local position = cam.CFrame.Position
-            local moveDirection = Vector3.new(0, 0, 0)
-
-            -- Movimento da câmera apenas, sem afetar o personagem
-            local mouseDelta = UserInputService:GetMouseDelta()
-            local yawDelta = mouseDelta.X * currentMouseSensitivity
-            local pitchDelta = mouseDelta.Y * currentMouseSensitivity
-
-            if loopRotationEnabled then
-                -- Rotação em loop ao redor do centro
-                local center = loopRotationCenter or (PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") and PlayerCharacter.HumanoidRootPart.Position)
-                if center then
-                    local relativePos = position - center
-                    local radius = relativePos.Magnitude
-                    local currentAngle = math.atan2(relativePos.Z, relativePos.X)
-                    local newAngle = currentAngle + math.rad(loopRotationSpeed * dt)
-                    position = center + Vector3.new(
-                        radius * math.cos(newAngle),
-                        relativePos.Y,
-                        radius * math.sin(newAngle)
-                    )
-                    cameraYaw = cameraYaw + (loopRotationSpeed * dt)
-                end
-            else
-                cameraYaw = cameraYaw + yawDelta
-                cameraPitch = math.clamp(cameraPitch - pitchDelta, -89, 89)
-            end
-
-            local yawRad = math.rad(cameraYaw)
-            local pitchRad = math.rad(cameraPitch)
-            local lookDirection = Vector3.new(
-                math.cos(yawRad) * math.cos(pitchRad),
-                math.sin(pitchRad),
-                math.sin(yawRad) * math.cos(pitchRad)
-            ).Unit
-            local rightDirection = lookDirection:Cross(Vector3.new(0, 1, 0)).Unit
-
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                moveDirection = moveDirection + lookDirection
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                moveDirection = moveDirection - lookDirection
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                moveDirection = moveDirection - rightDirection
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                moveDirection = moveDirection + rightDirection
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.E) then
-                moveDirection = moveDirection + Vector3.new(0, 1, 0)
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Q) then
-                moveDirection = moveDirection - Vector3.new(0, 1, 0)
-            end
-
-            if moveDirection.Magnitude > 0 then
-                moveDirection = moveDirection.Unit * currentSpeed * dt
-                position = position + moveDirection
-            end
-
-            local newCFrame = CFrame.new(position, position + lookDirection)
-            cam.CFrame = newCFrame
-        end)
-        table.insert(connections, cameraConnection)
-    else
-        cameraActive = false
-        restoreDefaultCamera()
-    end
-end
-
--- Function for Slow Motion
-local function toggleSlowMotion(enabled)
-    slowMotionActive = enabled
-    guiState.slowMotionActive = enabled
-    local targetSpeed = enabled and slowMotionSpeed or normalSpeed
-    local speedTween = TweenService:Create(
-        Instance.new("NumberValue"),
-        speedTweenInfo,
-        {Value = targetSpeed}
-    )
-    speedTween:Play()
-    speedTween.Completed:Connect(function()
-        currentSpeed = targetSpeed
-        print("Slow Motion: " .. (slowMotionActive and "Ativado" or "Desativado"))
-    end)
-end
-
 -- Function for Teleport with Click
 local function performClickTeleport(position)
     local rootPart = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart")
@@ -2168,7 +1798,6 @@ local function performClickTeleport(position)
 
     local targetPosition
     if UserInputService.TouchEnabled and position then
-        -- Mobile: Usa Raycast para encontrar superfície
         local rayOrigin = Workspace.CurrentCamera:ViewportPointToRay(position.X, position.Y)
         local maxDistance = 1000000
         local raycastParams = RaycastParams.new()
@@ -2183,7 +1812,6 @@ local function performClickTeleport(position)
         end
         targetPosition = raycastResult.Position
     else
-        -- PC: Usa posição do mouse
         local mouse = LocalPlayer:GetMouse()
         if not mouse.Hit then
             warn("Erro: Posição do mouse não detectada.")
@@ -2192,7 +1820,6 @@ local function performClickTeleport(position)
         targetPosition = mouse.Hit.Position
     end
 
-    -- Ajustar altura para evitar ficar preso
     local safePosition = targetPosition + Vector3.new(0, 2.5, 0)
     rootPart.CFrame = CFrame.new(safePosition)
     playSound("5852470908")
@@ -2206,6 +1833,16 @@ local function toggleClickTeleport(enabled)
     print("Teleportar para Clique: " .. (enabled and "Ativado" or "Desativado"))
 end
 
+-- Function to Teleport to Mouse Position with F3
+local function teleportToMouse()
+    local mouse = LocalPlayer:GetMouse()
+    if mouse.Hit then
+        performClickTeleport()
+    else
+        warn("Erro: Posição do mouse não detectada.")
+    end
+end
+
 -- Conexão para detectar cliques/toques
 local clickTeleportConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed or not clickTeleportEnabled then return end
@@ -2215,22 +1852,6 @@ local clickTeleportConnection = UserInputService.InputBegan:Connect(function(inp
     end
 end)
 table.insert(connections, clickTeleportConnection)
-
--- Function to Toggle Loop Rotation
-local function toggleLoopRotation(enabled)
-    if not cameraActive then
-        print("Erro: Free Cam deve estar ativa para usar rotação em loop.")
-        return
-    end
-    loopRotationEnabled = enabled
-    guiState.loopRotationEnabled = enabled
-    if enabled then
-        loopRotationCenter = PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") and PlayerCharacter.HumanoidRootPart.Position or loopRotationCenter
-        print("Rotação em loop: Ativada")
-    else
-        print("Rotação em loop: Desativada")
-    end
-end
 
 -- Function to Toggle Mouse Lock
 local function toggleMouseLock()
@@ -2251,8 +1872,19 @@ local function initializeGui()
         PlayerCharacter = LocalPlayer.Character
     end
 
-    -- Seção: Modificações do Jogador
     addSectionLabel("Modificações do Jogador")
+	addButton("Teleport Tool", function(state)
+		mouse = game.Players.LocalPlayer:GetMouse()
+		tool = Instance.new("Tool")
+		tool.RequiresHandle = false
+		tool.Name = "Tp tool(Equip to Click TP)"
+		tool.Activated:connect(function()
+		local pos = mouse.Hit+Vector3.new(0,2.5,0)
+		pos = CFrame.new(pos.X,pos.Y,pos.Z)
+		game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = pos
+		end)
+		tool.Parent = game.Players.LocalPlayer.Backpack
+    end, true)
     addButton("Noclip", function(state)
         toggleNoclip(state)
     end, true)
@@ -2281,7 +1913,6 @@ local function initializeGui()
         toggleFly(state)
     end, true)
 
-    -- Seção: Modificações Visuais
     addSectionLabel("Modificações Visuais")
     addSlider("Alcance da Lanterna", 60, 20, 120, function(value)
         flashlightRange = value
@@ -2307,45 +1938,25 @@ local function initializeGui()
     addButton("Fullbright", function(state)
         toggleFullbright(state)
     end, true)
-    -- Seção: Administração
+
     addSectionLabel("Administração")
     addButton("📌 Infinite Yield Scripts", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
         print("📌 Infinite Yield Scripts: Executado")
     end, false)
-    addButton("Nameless Admin", function()
+    addButton("📌 Nameless Admin", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/FilteringEnabled/NamelessAdmin/main/Source"))()
-        print("Nameless Admin: Executado")
+        print("📌 Nameless Admin: Executado")
     end, false)
-    addButton("Fates Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/fatesc/fates-admin/main/main.lua"))()
-        print("Fates Admin: Executado")
+    addButton("📌 Btools", function()
+        loadstring(game:HttpGet("https://cdn.wearedevs.net/scripts/BTools.txt"))()
+        print("📌 Btools: Executado")
     end, false)
-    addButton("CMD (TEST)", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source"))()
-        print("CMD (TEST): Executado")
-    end, false)
-    addButton("Shattervast Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/Shattervast/Shattervast-Admin/main/source"))()
-        print("Shattervast Admin: Executado")
-    end, false)
-    addButton("Proton Free Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Free.lua"))()
-        print("Proton Free Admin: Executado")
-    end, false)
-    addButton("Proton 2 Free Admin", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ProtonDev-sys/Proton/main/Proton2Free.lua"))()
-        print("Proton 2 Free Admin: Executado")
-    end, false)
-    addButton("Reviz Admin V2", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/2tu3/Reviz-Admin-V2/main/RevizAdminV2"))()
-        print("Reviz Admin V2: Executado")
-    end, false)
-    addButton("SkyHub", function()
+    addButton("📌 SkyHub", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/main/SkyHub.txt"))()
-        print("SkyHub: Executado")
+        print("📌 SkyHub: Executado")
     end, false)
-    -- Seção: espião
+
     addSectionLabel("Espião")
     addButton("🕵️ Sigma Spy (Level 7)", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/depthso/Sigma-Spy/refs/heads/main/Main.lua"), "Sigma Spy")()
@@ -2355,7 +1966,7 @@ local function initializeGui()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/Simple%20Spy%20Lite.lua"))()
         print("🕵️ Simple Spy Lite: Executado")
     end, false)
-    -- Seção: Scripts de Jogos
+
     addSectionLabel("Scripts de Jogos")
     addButton("🎯 Aimbot PC", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/main/aimbot.lua"))()
@@ -2383,7 +1994,7 @@ local function initializeGui()
     end, false)
     addButton("🏴‍☠️ Blox Fruits Auto Join + Tradução", function()
         local Settings = {
-            JoinTeam = "Pirates"; -- Altere para "Marines" se quiser
+            JoinTeam = "Pirates";
             Translator = true;
         }
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Trustmenotcondom/QTONYX/refs/heads/main/QuantumOnyx.lua"))()
@@ -2398,7 +2009,7 @@ local function initializeGui()
         print("🐸 Brainrot Evolution: Executado")
     end, false)
     addButton("💰 Daily Reward Hack", function()
-        local Coins = 99999 -- Altere aqui a quantidade desejada de moedas
+        local Coins = 99999
         local args = {
             [1] = {
                 ["Jackpot_Chance"] = "600",
@@ -2429,7 +2040,7 @@ local function initializeGui()
         print("🧱 Doors DarkDoorsKing Rank: Script executado")
     end, false)
     addButton("🥀 Hunters", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/Hunters"))()  
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/Hunters"))()
         print("🥀 Hunters: Executado")
     end, false)
     addButton("😂 Meme Sea", function()
@@ -2460,7 +2071,6 @@ local function initializeGui()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ferickinhoferreira/HackingAndCyberSecurity/refs/heads/main/zombie%20attack.lua"))()
         print("👽 Zombie Attack: Executado")
     end, false)
-    -- Novos botões adicionados
     addButton("🪄 Wizard West", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/WizardWest"))()
         print("🪄 Wizard West: Executado")
@@ -2519,7 +2129,6 @@ local function initializeGui()
         print("🔗 Prision Life: Executado")
     end, false)
 
-    -- Seção: Lista de Jogadores
     addSectionLabel("Lista de Jogadores")
     addSlider("Distância de Seguimento", 5, 1, 50, function(value)
         followDistance = value
@@ -2527,16 +2136,14 @@ local function initializeGui()
     end)
     createPlayerList()
 
-    -- Seção: Controle de Teleporte
     addSectionLabel("Controle de Teleporte")
     addButton("Teleportar para o Cursor/Toque", function()
-        performClickTeleport() -- Chamando a função sem parâmetro para PC
+        performClickTeleport()
     end, false)
     addButton("Teleportar para Clique", function(state)
         toggleClickTeleport(state)
     end, true)
 
-        -- Seção: Controles do Script
     addSectionLabel("Controles do Script")
     addButton("Encerrar tudo", function()
         terminateScript()
@@ -2545,50 +2152,6 @@ local function initializeGui()
         toggleMouseLock()
     end, false)
 
-    -- Seção: Free Cam
-    addSectionLabel("Free Cam")
-    addButton("Free Cam Simples", function(state)
-        if state then
-            toggleFreeCam(1)
-        else
-            toggleFreeCam(0)
-        end
-    end, true)
-    addButton("Free Cam Cinematic", function(state)
-        if state then
-            toggleFreeCam(2)
-        else
-            toggleFreeCam(0)
-        end
-    end, true)
-    addSlider("Velocidade da Câmera", 40, 10, 100, function(value)
-        cameraSpeed = value
-        currentSpeed = slowMotionActive and slowMotionSpeed or value
-        guiState.cameraSpeed = value
-    end)
-    addSlider("FOV da Câmera", 70, 10, 120, function(value)
-        cameraFOV = value
-        guiState.cameraFOV = value
-        if cameraActive then
-            Workspace.CurrentCamera.FieldOfView = value
-        end
-    end)
-    addSlider("Sensibilidade do Mouse", 15, 1, 50, function(value)
-        mouseSensitivity = value / 100
-        currentMouseSensitivity = slowMotionActive and (value / 100) * 0.5 or value / 100
-        guiState.mouseSensitivity = value / 100
-    end)
-    addButton("Rotação em Loop", function(state)
-        toggleLoopRotation(state)
-    end, true)
-    addSlider("Velocidade de Rotação", 30, 10, 100, function(value)
-        loopRotationSpeed = value
-    end)
-    addButton("Câmera Lenta", function(state)
-        toggleSlowMotion(state)
-    end, true)
-
-    -- Conexões de Input
     local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then
             return
@@ -2608,34 +2171,19 @@ local function initializeGui()
                 floatingButton.Visible = false
                 adjustGuiForDevice()
             end
-        elseif input.KeyCode == Enum.KeyCode.F2 and cameraActive then
+        elseif input.KeyCode == Enum.KeyCode.F3 then
             playSound("5852470908")
-            characterControlActive = not characterControlActive
-            blockPlayerMovement(not characterControlActive)
-            print("Controle do Personagem: " .. (characterControlActive and "Ativado" or "Desativado"))
-        elseif input.KeyCode == Enum.KeyCode.F3 and cameraActive then
-            playSound("5852470908")
-            toggleSlowMotion(not slowMotionActive)
+            teleportToMouse()
         end
     end)
     table.insert(connections, inputConnection)
 
-    -- Conexão para reaplicar estado ao respawn
     local characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character)
         reapplyGuiState(character)
     end)
     table.insert(connections, characterAddedConnection)
 
-    -- Conexão para reaplicar estado ao mudar de câmera
-    local cameraChangedConnection = Workspace.CurrentCamera:GetPropertyChangedSignal("CameraType"):Connect(function()
-        if cameraActive and Workspace.CurrentCamera.CameraType ~= Enum.CameraType.Scriptable then
-            Workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
-        end
-    end)
-    table.insert(connections, cameraChangedConnection)
-
     print("Ferickinho Final Hub: Inicializado com sucesso!")
 end
 
--- Executar a inicialização
 initializeGui()
