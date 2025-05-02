@@ -1885,7 +1885,7 @@ local function initializeGui()
 		end)
 		tool.Parent = game.Players.LocalPlayer.Backpack
     end, true)
-    addButton("Atravessar paredes", function(state)
+    addButton("Noclip", function(state)
         toggleNoclip(state)
     end, true)
     addSlider("Pulo", 50, 50, 600, function(value)
