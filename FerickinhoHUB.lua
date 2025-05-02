@@ -1546,29 +1546,91 @@ local function createPlayerList()
     local function addPlayerEntry(player)
         if player == LocalPlayer then return end
         local entry = Instance.new("Frame")
-        entry.Size = UDim2.new(1, -10, 0, 30)
+        entry.Size = UDim2.new(1, -10, 0, 60)  -- Aumentei a altura para acomodar o ID
         entry.BackgroundTransparency = 1
         entry.ZIndex = 15
         entry.Parent = playerListFrame
         entry.Visible = true
 
-        local nameButton = Instance.new("TextButton")
-        nameButton.Name = "PlayerName"
-        nameButton.Size = UDim2.new(0.5, 0, 1, 0)
-        nameButton.BackgroundColor3 = themeColors.Button
-        nameButton.TextColor3 = themeColors.Text
-        nameButton.Text = player.Name
-        nameButton.Font = Enum.Font.Gotham
-        nameButton.TextSize = 12
-        nameButton.ZIndex = 16
-        local nameCorner = Instance.new("UICorner")
-        nameCorner.CornerRadius = UDim.new(0, 6)
-        nameCorner.Parent = nameButton
-        nameButton.Parent = entry
+        -- Avatar do Jogador
+        local avatarImage = Instance.new("ImageLabel")
+        avatarImage.Size = UDim2.new(0, 50, 0, 50)
+        avatarImage.Position = UDim2.new(0, 5, 0, 5)
+        avatarImage.BackgroundTransparency = 1
+        avatarImage.ZIndex = 16
+        avatarImage.Parent = entry
 
+        -- Obter a imagem do avatar
+        local userId = player.UserId
+        local thumbType = Enum.ThumbnailType.HeadShot
+        local thumbSize = Enum.ThumbnailSize.Size48x48
+        local content, isReady = Players:GetUserThumbnailAsync(userId, thumbType, thumbSize)
+        if isReady then
+            avatarImage.Image = content
+        else
+            avatarImage.Image = "rbxassetid://0"  -- Imagem padrão se não estiver pronta
+        end
+
+        -- Nome e Apelido do Jogador
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Name = "PlayerName"
+        nameLabel.Size = UDim2.new(0.5, -60, 0, 30)
+        nameLabel.Position = UDim2.new(0, 60, 0, 5)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.TextColor3 = themeColors.Text
+        nameLabel.Font = Enum.Font.Gotham
+        nameLabel.TextSize = 12
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.ZIndex = 16
+        nameLabel.Parent = entry
+
+        local displayName = player.DisplayName
+        local userName = player.Name
+        if displayName ~= userName then
+            nameLabel.Text = displayName .. " (@" .. userName .. ")"
+        else
+            nameLabel.Text = "@" .. userName
+        end
+
+        -- ID do Jogador
+        local idLabel = Instance.new("TextLabel")
+        idLabel.Size = UDim2.new(0.5, -60, 0, 20)
+        idLabel.Position = UDim2.new(0, 60, 0, 35)
+        idLabel.BackgroundTransparency = 1
+        idLabel.TextColor3 = themeColors.Text
+        idLabel.Font = Enum.Font.Gotham
+        idLabel.TextSize = 10
+        idLabel.TextXAlignment = Enum.TextXAlignment.Left
+        idLabel.Text = "ID: " .. tostring(userId)
+        idLabel.ZIndex = 16
+        idLabel.Parent = entry
+
+        -- Botão de Copiar ID
+        local copyButton = Instance.new("TextButton")
+        copyButton.Size = UDim2.new(0, 20, 0, 20)
+        copyButton.Position = UDim2.new(0.5, -55, 0, 35)
+        copyButton.BackgroundTransparency = 1
+        copyButton.Text = "📋"
+        copyButton.TextColor3 = themeColors.Text
+        copyButton.Font = Enum.Font.Gotham
+        copyButton.TextSize = 14
+        copyButton.ZIndex = 16
+        copyButton.Parent = entry
+
+        copyButton.MouseButton1Click:Connect(function()
+            local idText = tostring(userId)
+            if setclipboard then
+                setclipboard(idText)
+                print("ID copiado: " .. idText)
+            else
+                print("Funcionalidade de copiar não disponível.")
+            end
+        end)
+
+        -- Botão de Teleporte
         local teleportButton = Instance.new("TextButton")
-        teleportButton.Size = UDim2.new(0.2, 0, 1, 0)
-        teleportButton.Position = UDim2.new(0.55, 0, 0, 0)
+        teleportButton.Size = UDim2.new(0.2, 0, 0, 30)
+        teleportButton.Position = UDim2.new(0.55, 0, 0, 5)
         teleportButton.BackgroundColor3 = themeColors.Button
         teleportButton.TextColor3 = themeColors.Text
         teleportButton.Text = "Teleportar"
@@ -1580,9 +1642,10 @@ local function createPlayerList()
         teleportCorner.Parent = teleportButton
         teleportButton.Parent = entry
 
+        -- Botão de Grudar
         local followButton = Instance.new("TextButton")
-        followButton.Size = UDim2.new(0.2, 0, 1, 0)
-        followButton.Position = UDim2.new(0.8, 0, 0, 0)
+        followButton.Size = UDim2.new(0.2, 0, 0, 30)
+        followButton.Position = UDim2.new(0.8, 0, 0, 5)
         followButton.BackgroundColor3 = themeColors.Button
         followButton.TextColor3 = themeColors.Text
         followButton.Text = "Grudar"
@@ -1605,11 +1668,13 @@ local function createPlayerList()
 
         playerEntries[player] = entry
 
-        nameButton.MouseButton1Click:Connect(function()
-            playSound("5852470908")
-            selectedFollowPlayer = player
-            for otherPlayer, otherEntry in pairs(playerEntries) do
-                otherEntry.PlayerName.BackgroundColor3 = otherPlayer == player and themeColors.Selected or themeColors.Button
+        nameLabel.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                playSound("5852470908")
+                selectedFollowPlayer = player
+                for otherPlayer, otherEntry in pairs(playerEntries) do
+                    otherEntry.PlayerName.TextColor3 = otherPlayer == player and themeColors.Selected or themeColors.Text
+                end
             end
         end)
 
@@ -1629,7 +1694,7 @@ local function createPlayerList()
                 selectedFollowPlayer = player
                 followEnabled = true
                 for otherPlayer, otherEntry in pairs(playerEntries) do
-                    otherEntry.PlayerName.BackgroundColor3 = otherPlayer == player and themeColors.Selected or themeColors.Button
+                    otherEntry.PlayerName.TextColor3 = otherPlayer == player and themeColors.Selected or themeColors.Text
                     if otherPlayer ~= player then
                         otherEntry.FollowButton:FindFirstChildOfClass("Frame").BackgroundColor3 = themeColors.ToggleOff
                     end
@@ -2471,12 +2536,59 @@ local function initializeGui()
         toggleClickTeleport(state)
     end, true)
 
-    -- Seção: Controles do Script
+        -- Seção: Controles do Script
     addSectionLabel("Controles do Script")
     addButton("Encerrar tudo", function()
         terminateScript()
     end, false)
+    addButton("Travar/Destravar Mouse", function()
+        toggleMouseLock()
+    end, false)
 
+    -- Seção: Free Cam
+    addSectionLabel("Free Cam")
+    addButton("Free Cam Simples", function(state)
+        if state then
+            toggleFreeCam(1)
+        else
+            toggleFreeCam(0)
+        end
+    end, true)
+    addButton("Free Cam Cinematic", function(state)
+        if state then
+            toggleFreeCam(2)
+        else
+            toggleFreeCam(0)
+        end
+    end, true)
+    addSlider("Velocidade da Câmera", 40, 10, 100, function(value)
+        cameraSpeed = value
+        currentSpeed = slowMotionActive and slowMotionSpeed or value
+        guiState.cameraSpeed = value
+    end)
+    addSlider("FOV da Câmera", 70, 10, 120, function(value)
+        cameraFOV = value
+        guiState.cameraFOV = value
+        if cameraActive then
+            Workspace.CurrentCamera.FieldOfView = value
+        end
+    end)
+    addSlider("Sensibilidade do Mouse", 15, 1, 50, function(value)
+        mouseSensitivity = value / 100
+        currentMouseSensitivity = slowMotionActive and (value / 100) * 0.5 or value / 100
+        guiState.mouseSensitivity = value / 100
+    end)
+    addButton("Rotação em Loop", function(state)
+        toggleLoopRotation(state)
+    end, true)
+    addSlider("Velocidade de Rotação", 30, 10, 100, function(value)
+        loopRotationSpeed = value
+    end)
+    addButton("Câmera Lenta", function(state)
+        toggleSlowMotion(state)
+    end, true)
+
+    -- Conexões de Input
     local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then
             return
@@ -2496,67 +2608,34 @@ local function initializeGui()
                 floatingButton.Visible = false
                 adjustGuiForDevice()
             end
-        elseif input.KeyCode == Enum.KeyCode.F2 then
-            playSound("5852470908")
-            local newState = (cameraState + 1) % 3
-            toggleFreeCam(newState)
-        elseif input.KeyCode == Enum.KeyCode.T then
-            playSound("5852470908")
-            toggleSlowMotion(not slowMotionActive)
-        elseif input.KeyCode == Enum.KeyCode.Y and cameraActive then
+        elseif input.KeyCode == Enum.KeyCode.F2 and cameraActive then
             playSound("5852470908")
             characterControlActive = not characterControlActive
             blockPlayerMovement(not characterControlActive)
-            print("Controle do personagem: " .. (characterControlActive and "Ativado" or "Desativado"))
-        elseif input.KeyCode == Enum.KeyCode.F3 then
+            print("Controle do Personagem: " .. (characterControlActive and "Ativado" or "Desativado"))
+        elseif input.KeyCode == Enum.KeyCode.F3 and cameraActive then
             playSound("5852470908")
-            performClickTeleport() -- Teleporte com F3
-        elseif input.KeyCode == Enum.KeyCode.Minus then
-            playSound("5852470908")
-            normalSpeed = math.max(10, normalSpeed - 5)
-            if not slowMotionActive then
-                currentSpeed = normalSpeed
-            end
-            print("Velocidade da câmera: " .. normalSpeed)
-        elseif input.KeyCode == Enum.KeyCode.Equals or input.KeyCode == Enum.KeyCode.Plus then
-            playSound("5852470908")
-            normalSpeed = math.min(200, normalSpeed + 5)
-            if not slowMotionActive then
-                currentSpeed = normalSpeed
-            end
-            print("Velocidade da câmera: " .. normalSpeed)
-        elseif input.KeyCode == Enum.KeyCode.R and cameraActive then
-            playSound("5852470908")
-            toggleLoopRotation(not loopRotationEnabled)
-        elseif input.KeyCode == Enum.KeyCode.Home then
-            playSound("5852470908")
-            toggleMouseLock()
+            toggleSlowMotion(not slowMotionActive)
         end
     end)
     table.insert(connections, inputConnection)
 
-    -- Handle character respawn
-    LocalPlayer.CharacterAdded:Connect(reapplyGuiState)
+    -- Conexão para reaplicar estado ao respawn
+    local characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character)
+        reapplyGuiState(character)
+    end)
+    table.insert(connections, characterAddedConnection)
 
-    -- Handle teleports
-    local lastPlaceId = game.PlaceId
-    local teleportConnection = TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
-        if player == LocalPlayer then
-            screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-            reapplyGuiState(LocalPlayer.Character)
+    -- Conexão para reaplicar estado ao mudar de câmera
+    local cameraChangedConnection = Workspace.CurrentCamera:GetPropertyChangedSignal("CameraType"):Connect(function()
+        if cameraActive and Workspace.CurrentCamera.CameraType ~= Enum.CameraType.Scriptable then
+            Workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
         end
     end)
-    table.insert(connections, teleportConnection)
+    table.insert(connections, cameraChangedConnection)
 
-    local placeConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if game.PlaceId ~= lastPlaceId then
-            lastPlaceId = game.PlaceId
-            screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-            reapplyGuiState(LocalPlayer.Character)
-        end
-    end)
-    table.insert(connections, placeConnection)
+    print("Ferickinho Final Hub: Inicializado com sucesso!")
 end
 
--- Initialize the GUI
+-- Executar a inicialização
 initializeGui()
