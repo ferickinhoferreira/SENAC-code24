@@ -13,6 +13,7 @@ local Stats = game:GetService("Stats")
 local TeleportService = game:GetService("TeleportService")
 local SoundService = game:GetService("SoundService")
 local ContextActionService = game:GetService("ContextActionService")
+local CoreGui = game:GetService("CoreGui")
 
 -- Player Variables
 local LocalPlayer = Players.LocalPlayer
@@ -30,6 +31,9 @@ local screenGui = nil
 local mainFrame = nil
 local scrollingFrame = nil
 local playerListFrame = nil
+local moderatorListFrame = nil
+local checkpointListFrame = nil
+local sectionListFrame = nil
 local topBar = nil
 local searchBar = nil
 local minimizeButton = nil
@@ -61,6 +65,8 @@ local lastTouchPos = nil
 local selectedFollowPlayer = nil
 local followEnabled = false
 local playerEntries = {}
+local moderatorEntries = {}
+local checkpoints = {}
 local defaultLighting = {
     Brightness = Lighting.Brightness,
     FogEnd = Lighting.FogEnd,
@@ -160,7 +166,7 @@ local function createFloatingButton()
     floatingButton.TextSize = 10
     floatingButton.TextScaled = true
     floatingButton.TextWrapped = true
-    floatingButton.ZIndex = 10
+    floatingButton.ZIndex = 10010
     floatingButton.Visible = false
     floatingButton.Parent = screenGui
 
@@ -230,7 +236,7 @@ local function createIntroScreen()
     introFrame.Position = UDim2.new(0.3, 0, 0.35, 0)
     introFrame.BackgroundColor3 = themeColors.Background
     introFrame.BackgroundTransparency = 1
-    introFrame.ZIndex = 100
+    introFrame.ZIndex = 10100
     introFrame.Parent = screenGui
 
     local corner = Instance.new("UICorner")
@@ -255,7 +261,7 @@ local function createIntroScreen()
     title.TextSize = 24
     title.TextScaled = true
     title.TextWrapped = true
-    title.ZIndex = 101
+    title.ZIndex = 10101
     title.Parent = introFrame
 
     local description = Instance.new("TextLabel")
@@ -269,7 +275,7 @@ local function createIntroScreen()
     description.TextSize = 16
     description.TextScaled = true
     description.TextWrapped = true
-    description.ZIndex = 101
+    description.ZIndex = 10101
     description.Parent = introFrame
 
     local enterButton = Instance.new("TextButton")
@@ -282,7 +288,7 @@ local function createIntroScreen()
     enterButton.TextTransparency = 1
     enterButton.Font = Enum.Font.GothamBold
     enterButton.TextSize = 14
-    enterButton.ZIndex = 101
+    enterButton.ZIndex = 10101
     enterButton.Parent = introFrame
 
     local buttonCorner = Instance.new("UICorner")
@@ -372,8 +378,9 @@ local function createGui()
     screenGui = Instance.new("ScreenGui")
     screenGui.Name = "FerickinhoHubGui"
     screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    screenGui.DisplayOrder = 10000
+    screenGui.Parent = CoreGui -- Usar CoreGui para sobrepor tudo
 
     uiScale = Instance.new("UIScale")
     uiScale.Parent = screenGui
@@ -386,7 +393,7 @@ local function createGui()
     mainFrame.Active = true
     mainFrame.Draggable = true
     mainFrame.Visible = false
-    mainFrame.ZIndex = 5
+    mainFrame.ZIndex = 10005
     mainFrame.Parent = screenGui
 
     local corner = Instance.new("UICorner")
@@ -403,7 +410,7 @@ local function createGui()
     topBar.Size = UDim2.new(1, 0, 0, 60)
     topBar.BackgroundColor3 = themeColors.TopBar
     topBar.BorderSizePixel = 0
-    topBar.ZIndex = 8
+    topBar.ZIndex = 10008
     topBar.Parent = mainFrame
 
     local topBarCorner = Instance.new("UICorner")
@@ -419,14 +426,14 @@ local function createGui()
     title.Font = Enum.Font.GothamBlack
     title.TextSize = 18
     title.TextXAlignment = Enum.TextXAlignment.Center
-    title.ZIndex = 9
+    title.ZIndex = 10009
     title.Parent = topBar
 
     local infoFrame = Instance.new("Frame")
     infoFrame.Size = UDim2.new(1, -20, 0, 20)
     infoFrame.Position = UDim2.new(0, 10, 0, 30)
     infoFrame.BackgroundTransparency = 1
-    infoFrame.ZIndex = 9
+    infoFrame.ZIndex = 10009
     infoFrame.Parent = topBar
 
     local infoLayout = Instance.new("UIListLayout")
@@ -444,7 +451,7 @@ local function createGui()
     pingLabel.Font = Enum.Font.Gotham
     pingLabel.TextSize = 12
     pingLabel.TextXAlignment = Enum.TextXAlignment.Left
-    pingLabel.ZIndex = 9
+    pingLabel.ZIndex = 10009
     pingLabel.Parent = infoFrame
 
     local fpsLabel = Instance.new("TextLabel")
@@ -455,7 +462,7 @@ local function createGui()
     fpsLabel.Font = Enum.Font.Gotham
     fpsLabel.TextSize = 12
     fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    fpsLabel.ZIndex = 9
+    fpsLabel.ZIndex = 10009
     fpsLabel.Parent = infoFrame
 
     local scriptsLabel = Instance.new("TextLabel")
@@ -466,7 +473,7 @@ local function createGui()
     scriptsLabel.Font = Enum.Font.Gotham
     scriptsLabel.TextSize = 12
     scriptsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    scriptsLabel.ZIndex = 9
+    scriptsLabel.ZIndex = 10009
     scriptsLabel.Parent = infoFrame
 
     local playersLabel = Instance.new("TextLabel")
@@ -477,7 +484,7 @@ local function createGui()
     playersLabel.Font = Enum.Font.Gotham
     playersLabel.TextSize = 12
     playersLabel.TextXAlignment = Enum.TextXAlignment.Left
-    playersLabel.ZIndex = 9
+    playersLabel.ZIndex = 10009
     playersLabel.Parent = infoFrame
 
     local statsConnection = RunService.RenderStepped:Connect(function(deltaTime)
@@ -527,7 +534,7 @@ local function createGui()
     minimizeButton.TextColor3 = themeColors.Text
     minimizeButton.Font = Enum.Font.GothamBold
     minimizeButton.TextSize = 16
-    minimizeButton.ZIndex = 9
+    minimizeButton.ZIndex = 10009
     minimizeButton.Parent = topBar
 
     local minimizeCorner = Instance.new("UICorner")
@@ -553,7 +560,7 @@ local function createGui()
     searchBar.TextSize = 14
     searchBar.TextXAlignment = Enum.TextXAlignment.Left
     searchBar.ClearTextOnFocus = false
-    searchBar.ZIndex = 7
+    searchBar.ZIndex = 10007
     searchBar.Parent = mainFrame
 
     local searchCorner = Instance.new("UICorner")
@@ -571,7 +578,7 @@ local function createGui()
     scrollingFrame.ScrollBarThickness = 4
     scrollingFrame.BackgroundTransparency = 1
     scrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrollingFrame.ZIndex = 10
+    scrollingFrame.ZIndex = 10010
     scrollingFrame.Parent = mainFrame
 
     local uiList = Instance.new("UIListLayout")
@@ -599,8 +606,8 @@ local function createGui()
                 child.Visible = searchText == "" or label.Text:lower():find(searchText) ~= nil
             elseif child:IsA("ScrollingFrame") then
                 for _, entry in ipairs(child:GetChildren()) do
-                    if entry:IsA("Frame") and entry:FindFirstChild("PlayerName") then
-                        entry.Visible = searchText == "" or entry.PlayerName.Text:lower():find(searchText) ~= nil
+                    if entry:IsA("Frame") and (entry:FindFirstChild("PlayerName") or entry:FindFirstChild("ModeratorName")) then
+                        entry.Visible = searchText == "" or entry:FindFirstChild("PlayerName") and entry.PlayerName.Text:lower():find(searchText) ~= nil or entry:FindFirstChild("ModeratorName") and entry.ModeratorName.Text:lower():find(searchText) ~= nil
                     end
                 end
             end
@@ -622,7 +629,7 @@ local function addSectionLabel(text)
     label.TextColor3 = themeColors.Text
     label.Font = Enum.Font.GothamBold
     label.TextSize = 14
-    label.ZIndex = 15
+    label.ZIndex = 10015
     label.Parent = scrollingFrame
     label.Visible = true
 end
@@ -636,7 +643,7 @@ local function addButton(text, callback, isToggle)
     button.Text = text
     button.Font = Enum.Font.Gotham
     button.TextSize = 12
-    button.ZIndex = 15
+    button.ZIndex = 10015
     button.Parent = scrollingFrame
     button.Visible = true
 
@@ -655,7 +662,7 @@ local function addButton(text, callback, isToggle)
         toggleIndicator.Size = UDim2.new(0, 20, 0, 20)
         toggleIndicator.Position = UDim2.new(1, -30, 0.5, -10)
         toggleIndicator.BackgroundColor3 = themeColors.ToggleOff
-        toggleIndicator.ZIndex = 16
+        toggleIndicator.ZIndex = 10016
         local toggleCorner = Instance.new("UICorner")
         toggleCorner.CornerRadius = UDim.new(0, 4)
         toggleCorner.Parent = toggleIndicator
@@ -665,7 +672,7 @@ local function addButton(text, callback, isToggle)
         loopFrame.Size = UDim2.new(0, 50, 0, 20)
         loopFrame.Position = UDim2.new(1, -85, 0.5, -10)
         loopFrame.BackgroundColor3 = themeColors.Button
-        loopFrame.ZIndex = 16
+        loopFrame.ZIndex = 10016
         local loopCorner = Instance.new("UICorner")
         loopCorner.CornerRadius = UDim.new(0, 4)
         loopCorner.Parent = loopFrame
@@ -679,7 +686,7 @@ local function addButton(text, callback, isToggle)
         loopLabel.Font = Enum.Font.Gotham
         loopLabel.TextSize = 10
         loopLabel.TextScaled = true
-        loopLabel.ZIndex = 17
+        loopLabel.ZIndex = 10017
         local loopLabelCorner = Instance.new("UICorner")
         loopLabelCorner.CornerRadius = UDim.new(0, 4)
         loopLabelCorner.Parent = loopLabel
@@ -694,7 +701,7 @@ local function addButton(text, callback, isToggle)
         resetButton.Font = Enum.Font.Gotham
         resetButton.TextSize = 10
         resetButton.TextScaled = true
-        resetButton.ZIndex = 16
+        resetButton.ZIndex = 10016
         local resetCorner = Instance.new("UICorner")
         resetCorner.CornerRadius = UDim.new(0, 4)
         resetCorner.Parent = resetButton
@@ -768,7 +775,7 @@ local function addSlider(name, default, min, max, callback)
     local holder = Instance.new("Frame")
     holder.Size = UDim2.new(1, -10, 0, 50)
     holder.BackgroundTransparency = 1
-    holder.ZIndex = 15
+    holder.ZIndex = 10015
     holder.Parent = scrollingFrame
     holder.Visible = true
 
@@ -780,7 +787,7 @@ local function addSlider(name, default, min, max, callback)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.Gotham
     label.TextSize = 13
-    label.ZIndex = 15
+    label.ZIndex = 10015
     label.Parent = holder
 
     local sliderBox = Instance.new("TextBox")
@@ -792,7 +799,7 @@ local function addSlider(name, default, min, max, callback)
     sliderBox.TextSize = 12
     sliderBox.Text = tostring(default)
     sliderBox.ClearTextOnFocus = false
-    sliderBox.ZIndex = 15
+    sliderBox.ZIndex = 10015
     local sliderBoxCorner = Instance.new("UICorner")
     sliderBoxCorner.CornerRadius = UDim.new(0, 6)
     sliderBoxCorner.Parent = sliderBox
@@ -802,7 +809,7 @@ local function addSlider(name, default, min, max, callback)
     loopFrame.Size = UDim2.new(0, 50, 0, 20)
     loopFrame.Position = UDim2.new(0.67, 0, 0, 2)
     loopFrame.BackgroundColor3 = themeColors.Button
-    loopFrame.ZIndex = 16
+    loopFrame.ZIndex = 10016
     local loopCorner = Instance.new("UICorner")
     loopCorner.CornerRadius = UDim.new(0, 4)
     loopCorner.Parent = loopFrame
@@ -816,7 +823,7 @@ local function addSlider(name, default, min, max, callback)
     loopLabel.Font = Enum.Font.Gotham
     loopLabel.TextSize = 10
     loopLabel.TextScaled = true
-    loopLabel.ZIndex = 17
+    loopLabel.ZIndex = 10017
     local loopLabelCorner = Instance.new("UICorner")
     loopLabelCorner.CornerRadius = UDim.new(0, 4)
     loopLabelCorner.Parent = loopLabel
@@ -831,7 +838,7 @@ local function addSlider(name, default, min, max, callback)
     resetButton.Font = Enum.Font.Gotham
     resetButton.TextSize = 10
     resetButton.TextScaled = true
-    resetButton.ZIndex = 16
+    resetButton.ZIndex = 10016
     local resetCorner = Instance.new("UICorner")
     resetCorner.CornerRadius = UDim.new(0, 4)
     resetCorner.Parent = resetButton
@@ -842,7 +849,7 @@ local function addSlider(name, default, min, max, callback)
     sliderBar.Size = UDim2.new(1, 0, 0.3, 0)
     sliderBar.Position = UDim2.new(0, 0, 0.5, 0)
     sliderBar.BackgroundColor3 = themeColors.Button
-    sliderBar.ZIndex = 15
+    sliderBar.ZIndex = 10015
     local sliderBarCorner = Instance.new("UICorner")
     sliderBarCorner.CornerRadius = UDim.new(0, 4)
     sliderBarCorner.Parent = sliderBar
@@ -851,7 +858,7 @@ local function addSlider(name, default, min, max, callback)
     local fillBar = Instance.new("Frame")
     fillBar.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
     fillBar.BackgroundColor3 = themeColors.Accent
-    fillBar.ZIndex = 15
+    fillBar.ZIndex = 10015
     local fillBarCorner = Instance.new("UICorner")
     fillBarCorner.CornerRadius = UDim.new(0, 4)
     fillBarCorner.Parent = fillBar
@@ -863,7 +870,7 @@ local function addSlider(name, default, min, max, callback)
     knob.BackgroundColor3 = themeColors.Accent
     knob.Text = ""
     knob.AutoButtonColor = false
-    knob.ZIndex = 16
+    knob.ZIndex = 10016
     local knobCorner = Instance.new("UICorner")
     knobCorner.CornerRadius = UDim.new(1, 0)
     knobCorner.Parent = knob
@@ -1034,6 +1041,13 @@ local function terminateScript()
         entry:Destroy()
     end
     playerEntries = {}
+
+    for _, entry in pairs(moderatorEntries) do
+        entry:Destroy()
+    end
+    moderatorEntries = {}
+
+    checkpoints = {}
 
     if PlayerCharacter and PlayerCharacter:FindFirstChildOfClass("Humanoid") then
         PlayerCharacter.Humanoid.WalkSpeed = defaultSettings.WalkSpeed
@@ -1464,7 +1478,7 @@ local function createPlayerList()
     playerListFrame.ScrollBarThickness = 4
     playerListFrame.BackgroundTransparency = 1
     playerListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    playerListFrame.ZIndex = 15
+    playerListFrame.ZIndex = 10015
     playerListFrame.Parent = scrollingFrame
 
     local uiList = Instance.new("UIListLayout")
@@ -1483,7 +1497,7 @@ local function createPlayerList()
         local entry = Instance.new("Frame")
         entry.Size = UDim2.new(1, -10, 0, 60)
         entry.BackgroundTransparency = 1
-        entry.ZIndex = 15
+        entry.ZIndex = 10015
         entry.Parent = playerListFrame
         entry.Visible = true
 
@@ -1491,7 +1505,7 @@ local function createPlayerList()
         avatarImage.Size = UDim2.new(0, 50, 0, 50)
         avatarImage.Position = UDim2.new(0, 5, 0, 5)
         avatarImage.BackgroundTransparency = 1
-        avatarImage.ZIndex = 16
+        avatarImage.ZIndex = 10016
         avatarImage.Parent = entry
 
         local userId = player.UserId
@@ -1513,7 +1527,7 @@ local function createPlayerList()
         nameLabel.Font = Enum.Font.Gotham
         nameLabel.TextSize = 12
         nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.ZIndex = 16
+        nameLabel.ZIndex = 10016
         nameLabel.Parent = entry
 
         local displayName = player.DisplayName
@@ -1533,7 +1547,7 @@ local function createPlayerList()
         idLabel.TextSize = 10
         idLabel.TextXAlignment = Enum.TextXAlignment.Left
         idLabel.Text = "ID: " .. tostring(userId)
-        idLabel.ZIndex = 16
+        idLabel.ZIndex = 10016
         idLabel.Parent = entry
 
         local copyButton = Instance.new("TextButton")
@@ -1544,7 +1558,7 @@ local function createPlayerList()
         copyButton.TextColor3 = themeColors.Text
         copyButton.Font = Enum.Font.Gotham
         copyButton.TextSize = 14
-        copyButton.ZIndex = 16
+        copyButton.ZIndex = 10016
         copyButton.Parent = entry
 
         copyButton.MouseButton1Click:Connect(function()
@@ -1565,7 +1579,7 @@ local function createPlayerList()
         teleportButton.Text = "Teleportar"
         teleportButton.Font = Enum.Font.Gotham
         teleportButton.TextSize = 12
-        teleportButton.ZIndex = 16
+        teleportButton.ZIndex = 10016
         local teleportCorner = Instance.new("UICorner")
         teleportCorner.CornerRadius = UDim.new(0, 6)
         teleportCorner.Parent = teleportButton
@@ -1579,7 +1593,7 @@ local function createPlayerList()
         followButton.Text = "Grudar"
         followButton.Font = Enum.Font.Gotham
         followButton.TextSize = 12
-        followButton.ZIndex = 16
+        followButton.ZIndex = 10016
         local followCorner = Instance.new("UICorner")
         followCorner.CornerRadius = UDim.new(0, 6)
         followCorner.Parent = followButton
@@ -1587,7 +1601,7 @@ local function createPlayerList()
         followIndicator.Size = UDim2.new(0, 20, 0, 20)
         followIndicator.Position = UDim2.new(1, -25, 0.5, -10)
         followIndicator.BackgroundColor3 = themeColors.ToggleOff
-        followIndicator.ZIndex = 17
+        followIndicator.ZIndex = 10017
         local followIndicatorCorner = Instance.new("UICorner")
         followIndicatorCorner.CornerRadius = UDim.new(0, 4)
         followIndicatorCorner.Parent = followIndicator
@@ -1679,6 +1693,348 @@ local function createPlayerList()
     table.insert(connections, followConnection)
 end
 
+-- Moderator List Functionality
+local function isAdmin(player)
+    return player.UserId == game.CreatorId -- Adicione mais lógica se necessário
+end
+
+local function createModeratorList()
+    moderatorListFrame = Instance.new("ScrollingFrame")
+    moderatorListFrame.Size = UDim2.new(1, 0, 0.3, 0)
+    moderatorListFrame.Position = UDim2.new(0, 0, 0, 0)
+    moderatorListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    moderatorListFrame.ScrollBarThickness = 4
+    moderatorListFrame.BackgroundTransparency = 1
+    moderatorListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    moderatorListFrame.ZIndex = 10015
+    moderatorListFrame.Parent = scrollingFrame
+
+    local uiList = Instance.new("UIListLayout")
+    uiList.Padding = UDim.new(0, 5)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.Parent = moderatorListFrame
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 5)
+    padding.PaddingRight = UDim.new(0, 5)
+    padding.PaddingTop = UDim.new(0, 5)
+    padding.Parent = moderatorListFrame
+
+    local function addModeratorEntry(player)
+        if not isAdmin(player) then return end
+        local entry = Instance.new("Frame")
+        entry.Size = UDim2.new(1, -10, 0, 60)
+        entry.BackgroundTransparency = 1
+        entry.ZIndex = 10015
+        entry.Parent = moderatorListFrame
+        entry.Visible = true
+
+        local avatarImage = Instance.new("ImageLabel")
+        avatarImage.Size = UDim2.new(0, 50, 0, 50)
+        avatarImage.Position = UDim2.new(0, 5, 0, 5)
+        avatarImage.BackgroundTransparency = 1
+        avatarImage.ZIndex = 10016
+        avatarImage.Parent = entry
+
+        local userId = player.UserId
+        local thumbType = Enum.ThumbnailType.HeadShot
+        local thumbSize = Enum.ThumbnailSize.Size48x48
+        local content, isReady = Players:GetUserThumbnailAsync(userId, thumbType, thumbSize)
+        if isReady then
+            avatarImage.Image = content
+        else
+            avatarImage.Image = "rbxassetid://0"
+        end
+
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Name = "ModeratorName"
+        nameLabel.Size = UDim2.new(0.5, -60, 0, 30)
+        nameLabel.Position = UDim2.new(0, 60, 0, 5)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.TextColor3 = themeColors.Text
+        nameLabel.Font = Enum.Font.Gotham
+        nameLabel.TextSize = 12
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.ZIndex = 10016
+        nameLabel.Parent = entry
+
+        local displayName = player.DisplayName
+        local userName = player.Name
+        if displayName ~= userName then
+            nameLabel.Text = displayName .. " (@" .. userName .. ")"
+        else
+            nameLabel.Text = "@" .. userName
+        end
+
+        local roleLabel = Instance.new("TextLabel")
+        roleLabel.Size = UDim2.new(0.5, -60, 0, 20)
+        roleLabel.Position = UDim2.new(0, 60, 0, 35)
+        roleLabel.BackgroundTransparency = 1
+        roleLabel.TextColor3 = themeColors.Accent
+        roleLabel.Font = Enum.Font.GothamBold
+        roleLabel.TextSize = 10
+        roleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        roleLabel.Text = player.UserId == game.CreatorId and "Criador do Jogo" or "Administrador"
+        roleLabel.ZIndex = 10016
+        roleLabel.Parent = entry
+
+        local idLabel = Instance.new("TextLabel")
+        idLabel.Size = UDim2.new(0.5, -60, 0, 20)
+        idLabel.Position = UDim2.new(0, 60, 0, 55)
+        idLabel.BackgroundTransparency = 1
+        idLabel.TextColor3 = themeColors.Text
+        idLabel.Font = Enum.Font.Gotham
+        idLabel.TextSize = 10
+        idLabel.TextXAlignment = Enum.TextXAlignment.Left
+        idLabel.Text = "ID: " .. tostring(userId)
+        idLabel.ZIndex = 10016
+        idLabel.Parent = entry
+
+        local copyButton = Instance.new("TextButton")
+        copyButton.Size = UDim2.new(0, 20, 0, 20)
+        copyButton.Position = UDim2.new(0.5, -55, 0, 55)
+        copyButton.BackgroundTransparency = 1
+        copyButton.Text = "📋"
+        copyButton.TextColor3 = themeColors.Text
+        copyButton.Font = Enum.Font.Gotham
+        copyButton.TextSize = 14
+        copyButton.ZIndex = 10016
+        copyButton.Parent = entry
+
+        copyButton.MouseButton1Click:Connect(function()
+            local idText = tostring(userId)
+            if setclipboard then
+                setclipboard(idText)
+                print("ID copiado: " .. idText)
+            else
+                print("Funcionalidade de copiar não disponível.")
+            end
+        end)
+
+        moderatorEntries[player] = entry
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        addModeratorEntry(player)
+    end
+
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        addModeratorEntry(player)
+    end)
+    table.insert(connections, playerAddedConnection)
+
+    local playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
+        if moderatorEntries[player] then
+            moderatorEntries[player]:Destroy()
+            moderatorEntries[player] = nil
+        end
+    end)
+    table.insert(connections, playerRemovingConnection)
+end
+
+-- Checkpoint Functionality
+local function createCheckpointList()
+    checkpointListFrame = Instance.new("ScrollingFrame")
+    checkpointListFrame.Size = UDim2.new(1, 0, 0.3, 0)
+    checkpointListFrame.Position = UDim2.new(0, 0, 0, 0)
+    checkpointListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    checkpointListFrame.ScrollBarThickness = 4
+    checkpointListFrame.BackgroundTransparency = 1
+    checkpointListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    checkpointListFrame.ZIndex = 10015
+    checkpointListFrame.Parent = scrollingFrame
+
+    local uiList = Instance.new("UIListLayout")
+    uiList.Padding = UDim.new(0, 5)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.Parent = checkpointListFrame
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 5)
+    padding.PaddingRight = UDim.new(0, 5)
+    padding.PaddingTop = UDim.new(0, 5)
+    padding.Parent = checkpointListFrame
+
+    local function updateCheckpointList()
+        for _, child in ipairs(checkpointListFrame:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        for i, cp in ipairs(checkpoints) do
+            local entry = Instance.new("Frame")
+            entry.Size = UDim2.new(1, -10, 0, 30)
+            entry.BackgroundTransparency = 1
+            entry.ZIndex = 10015
+            entry.Parent = checkpointListFrame
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+            nameLabel.Position = UDim2.new(0, 0, 0, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.TextColor3 = themeColors.Text
+            nameLabel.Font = Enum.Font.Gotham
+            nameLabel.TextSize = 12
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Text = cp.name
+            nameLabel.ZIndex = 10016
+            nameLabel.Parent = entry
+
+            local teleportButton = Instance.new("TextButton")
+            teleportButton.Size = UDim2.new(0.3, 0, 1, 0)
+            teleportButton.Position = UDim2.new(0.7, 0, 0, 0)
+            teleportButton.BackgroundColor3 = themeColors.Button
+            teleportButton.TextColor3 = themeColors.Text
+            teleportButton.Text = "Teleportar"
+            teleportButton.Font = Enum.Font.Gotham
+            teleportButton.TextSize = 12
+            teleportButton.ZIndex = 10016
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 6)
+            corner.Parent = teleportButton
+            teleportButton.Parent = entry
+
+            teleportButton.MouseButton1Click:Connect(function()
+                if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
+                    PlayerCharacter.HumanoidRootPart.CFrame = CFrame.new(cp.position)
+                end
+            end)
+        end
+    end
+
+    local saveButton = Instance.new("TextButton")
+    saveButton.Size = UDim2.new(1, -10, 0, 30)
+    saveButton.BackgroundColor3 = themeColors.Button
+    saveButton.TextColor3 = themeColors.Text
+    saveButton.Text = "Salvar Checkpoint"
+    saveButton.Font = Enum.Font.Gotham
+    saveButton.TextSize = 12
+    saveButton.ZIndex = 10015
+    saveButton.Parent = scrollingFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = saveButton
+
+    saveButton.MouseButton1Click:Connect(function()
+        if PlayerCharacter and PlayerCharacter:FindFirstChild("HumanoidRootPart") then
+            local position = PlayerCharacter.HumanoidRootPart.Position
+            table.insert(checkpoints, {name = "Checkpoint " .. #checkpoints + 1, position = position})
+            updateCheckpointList()
+        end
+    end)
+
+    local updateButton = Instance.new("TextButton")
+    updateButton.Size = UDim2.new(1, -10, 0, 30)
+    updateButton.BackgroundColor3 = themeColors.Button
+    updateButton.TextColor3 = themeColors.Text
+    updateButton.Text = "Atualizar Checkpoints"
+    updateButton.Font = Enum.Font.Gotham
+    updateButton.TextSize = 12
+    updateButton.ZIndex = 10015
+    updateButton.Parent = scrollingFrame
+
+    local corner2 = Instance.new("UICorner")
+    corner2.CornerRadius = UDim.new(0, 6)
+    corner2.Parent = updateButton
+
+    updateButton.MouseButton1Click:Connect(function()
+        checkpoints = {}
+        updateCheckpointList()
+    end)
+
+    updateCheckpointList()
+end
+
+-- Section Scanning Functionality
+local function createSectionList()
+    sectionListFrame = Instance.new("ScrollingFrame")
+    sectionListFrame.Size = UDim2.new(1, 0, 0.3, 0)
+    sectionListFrame.Position = UDim2.new(0, 0, 0, 0)
+    sectionListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    sectionListFrame.ScrollBarThickness = 4
+    sectionListFrame.BackgroundTransparency = 1
+    sectionListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sectionListFrame.ZIndex = 10015
+    sectionListFrame.Parent = scrollingFrame
+
+    local uiList = Instance.new("UIListLayout")
+    uiList.Padding = UDim.new(0, 5)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.Parent = sectionListFrame
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 5)
+    padding.PaddingRight = UDim.new(0, 5)
+    padding.PaddingTop = UDim.new(0, 5)
+    padding.Parent = sectionListFrame
+
+    local function updateSectionList(sections)
+        for _, child in ipairs(sectionListFrame:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        for i, sectionId in ipairs(sections) do
+            local entry = Instance.new("Frame")
+            entry.Size = UDim2.new(1, -10, 0, 30)
+            entry.BackgroundTransparency = 1
+            entry.ZIndex = 10015
+            entry.Parent = sectionListFrame
+
+            local idLabel = Instance.new("TextLabel")
+            idLabel.Size = UDim2.new(0.5, 0, 1, 0)
+            idLabel.Position = UDim2.new(0, 0, 0, 0)
+            idLabel.BackgroundTransparency = 1
+            idLabel.TextColor3 = themeColors.Text
+            idLabel.Font = Enum.Font.Gotham
+            idLabel.TextSize = 12
+            idLabel.TextXAlignment = Enum.TextXAlignment.Left
+            idLabel.Text = "Seção ID: " .. tostring(sectionId)
+            idLabel.ZIndex = 10016
+            idLabel.Parent = entry
+
+            local teleportButton = Instance.new("TextButton")
+            teleportButton.Size = UDim2.new(0.3, 0, 1, 0)
+            teleportButton.Position = UDim2.new(0.7, 0, 0, 0)
+            teleportButton.BackgroundColor3 = themeColors.Button
+            teleportButton.TextColor3 = themeColors.Text
+            teleportButton.Text = "Teleportar"
+            teleportButton.Font = Enum.Font.Gotham
+            teleportButton.TextSize = 12
+            teleportButton.ZIndex = 10016
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 6)
+            corner.Parent = teleportButton
+            teleportButton.Parent = entry
+
+            teleportButton.MouseButton1Click:Connect(function()
+                TeleportService:Teleport(sectionId, LocalPlayer)
+            end)
+        end
+    end
+
+    local scanButton = Instance.new("TextButton")
+    scanButton.Size = UDim2.new(1, -10, 0, 30)
+    scanButton.BackgroundColor3 = themeColors.Button
+    scanButton.TextColor3 = themeColors.Text
+    scanButton.Text = "Scanear Seções"
+    scanButton.Font = Enum.Font.Gotham
+    scanButton.TextSize = 12
+    scanButton.ZIndex = 10015
+    scanButton.Parent = scrollingFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = scanButton
+
+    scanButton.MouseButton1Click:Connect(function()
+        -- Simulação de escaneamento de seções (exemplo básico)
+        local sections = {game.PlaceId} -- Adicione lógica real para encontrar seções
+        updateSectionList(sections)
+    end)
+end
+
 -- Universal Classic Camera with Infinite Zoom
 local function setupClassicCamera()
     pcall(function()
@@ -1743,7 +2099,7 @@ local function reapplyGuiState(character)
     end
 
     if screenGui and not introFrame then
-        screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+        screenGui.Parent = CoreGui
         if guiState.isMinimized then
             mainFrame.Visible = false
             floatingButton.Visible = true
@@ -1873,17 +2229,17 @@ local function initializeGui()
     end
 
     addSectionLabel("Modificações do Jogador")
-	addButton("Teleportar para clique", function(state)
-		mouse = game.Players.LocalPlayer:GetMouse()
-		tool = Instance.new("Tool")
-		tool.RequiresHandle = false
-		tool.Name = "Tp tool(Equip to Click TP)"
-		tool.Activated:connect(function()
-		local pos = mouse.Hit+Vector3.new(0,2.5,0)
-		pos = CFrame.new(pos.X,pos.Y,pos.Z)
-		game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = pos
-		end)
-		tool.Parent = game.Players.LocalPlayer.Backpack
+    addButton("Teleportar para clique", function(state)
+        mouse = game.Players.LocalPlayer:GetMouse()
+        tool = Instance.new("Tool")
+        tool.RequiresHandle = false
+        tool.Name = "Tp tool(Equip to Click TP)"
+        tool.Activated:connect(function()
+            local pos = mouse.Hit + Vector3.new(0, 2.5, 0)
+            pos = CFrame.new(pos.X, pos.Y, pos.Z)
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = pos
+        end)
+        tool.Parent = game.Players.LocalPlayer.Backpack
     end, true)
     addButton("Noclip", function(state)
         toggleNoclip(state)
@@ -2136,6 +2492,9 @@ local function initializeGui()
     end)
     createPlayerList()
 
+    addSectionLabel("Checkpoints")
+    createCheckpointList()
+
     addSectionLabel("Controle de Teleporte")
     addButton("Teleportar para o Cursor/Toque", function()
         performClickTeleport()
@@ -2144,46 +2503,72 @@ local function initializeGui()
         toggleClickTeleport(state)
     end, true)
 
-    addSectionLabel("Controles do Script")
-    addButton("Encerrar tudo", function()
-        terminateScript()
-    end, false)
-    addButton("Travar/Destravar Mouse", function()
-        toggleMouseLock()
-    end, false)
-
-    local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then
-            return
+    addSectionLabel("Controle de Seção")
+    addButton("Copiar ID da Seção", function()
+        if setclipboard then
+            setclipboard(tostring(game.PlaceId))
+            print("ID da seção copiado: " .. game.PlaceId)
+        else
+            print("Funcionalidade de copiar não disponível.")
         end
-        if input.KeyCode == Enum.KeyCode.Delete then
-            playSound("5852470908")
-            terminateScript()
-        elseif input.KeyCode == Enum.KeyCode.F1 then
-            playSound("5852470908")
-            isMinimized = not isMinimized
-            guiState.isMinimized = isMinimized
-            if isMinimized then
-                mainFrame.Visible = false
-                floatingButton.Visible = true
-            else
-                mainFrame.Visible = true
-                floatingButton.Visible = false
-                adjustGuiForDevice()
-            end
-        elseif input.KeyCode == Enum.KeyCode.F3 then
-            playSound("5852470908")
-            teleportToMouse()
-        end
-    end)
-    table.insert(connections, inputConnection)
+    end, false)
+    local sectionIdBox = Instance.new("TextBox")
+    sectionIdBox.Size = UDim2.new(1, -10, 0, 30)
+    sectionIdBox.BackgroundColor3 = themeColors.SearchBar
+    sectionIdBox.TextColor3 = themeColors.Text
+    sectionIdBox.PlaceholderText = "Insira o ID da seção"
+    sectionIdBox.Font = Enum.Font.Gotham
+    sectionIdBox.TextSize = 12
+    sectionIdBox.ZIndex = 10015
+    sectionIdBox.Parent = scrollingFrame
 
-    local characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character)
-        reapplyGuiState(character)
-    end)
-    table.insert(connections, characterAddedConnection)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = sectionIdBox
 
-    print("Ferickinho Final Hub: Inicializado com sucesso!")
+    addButton("Teleportar para Seção", function()
+    local placeId = tonumber(sectionIdBox.Text)
+    if placeId then
+        TeleportService:Teleport(placeId, LocalPlayer)
+        print("Teleportando para a seção ID: " .. placeId)
+    else
+        print("ID da seção inválido. Insira um número válido.")
+    end
+end, false)
+createSectionList()
+
+addSectionLabel("Utilitários")
+addButton("Travar/Destravar Mouse", function()
+    toggleMouseLock()
+end, false)
+addButton("Terminar Script", function()
+    terminateScript()
+    print("Script terminado.")
+end, false)
+
+-- Reapply GUI state on character reset
+LocalPlayer.CharacterAdded:Connect(function(character)
+    reapplyGuiState(character)
+end)
+
+-- Initial state application
+reapplyGuiState(PlayerCharacter)
+
+-- Bind F3 to teleport to mouse
+local teleportKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.F3 then
+        teleportToMouse()
+    end
+end)
+table.insert(connections, teleportKeyConnection)
+
+print("Ferickinho Hub Final carregado com sucesso!")
 end
 
-initializeGui()
+-- Error Handling
+local success, errorMsg = pcall(initializeGui)
+if not success then
+    warn("Erro ao inicializar o Ferickinho Hub: " .. tostring(errorMsg))
+    terminateScript()
+end
