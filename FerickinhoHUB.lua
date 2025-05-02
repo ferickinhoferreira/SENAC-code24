@@ -1873,7 +1873,7 @@ local function initializeGui()
     end
 
     addSectionLabel("Modificações do Jogador")
-	addButton("Teleport Tool", function(state)
+	addButton("Teleportar para clique", function(state)
 		mouse = game.Players.LocalPlayer:GetMouse()
 		tool = Instance.new("Tool")
 		tool.RequiresHandle = false
