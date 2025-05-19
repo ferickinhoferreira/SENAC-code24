@@ -1,7 +1,6 @@
 -- Services
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 -- Player Variables
@@ -23,17 +22,6 @@ local activePlayerTargets = {} -- Jogadores ativos
 local npcTargets = {} -- Cache de alvos NPCs válidos
 local lastNPCScan = 0
 local SCAN_INTERVAL = 0.5 -- Intervalo de escaneamento em segundos
-
--- Função para enviar notificações discretas
-local function sendNotification(title, text)
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title,
-            Text = text,
-            Duration = 2
-        })
-    end)
-end
 
 -- Atualiza personagem quando o jogador respawnar
 local characterConnection = localPlayer.CharacterAdded:Connect(function(char)
@@ -344,9 +332,6 @@ local function terminateScript()
     npcTargets = {}
     activeNPCTargets = {}
     activePlayerTargets = {}
-
-    -- Notificar término
-    sendNotification("Script Terminated", "Wallhack functionalities have been stopped.")
 end
 
 -- Teclas de controle
@@ -357,12 +342,10 @@ local inputBeganConnection = UserInputService.InputBegan:Connect(function(input,
         if showESP and espRangeIndex == #espRanges then
             showESP = false
             clearNPCHighlights()
-            sendNotification("NPC ESP", "Disabled")
         else
             showESP = true
             espRangeIndex = espRangeIndex % #espRanges + 1
             espRange = espRanges[espRangeIndex]
-            sendNotification("NPC ESP", "Enabled (Range: " .. espRange .. ")")
         end
     end
 
@@ -370,12 +353,10 @@ local inputBeganConnection = UserInputService.InputBegan:Connect(function(input,
         if showPlayerESP and espRangeIndex == #espRanges then
             showPlayerESP = false
             clearPlayerHighlights()
-            sendNotification("Player ESP", "Disabled")
         else
             showPlayerESP = true
             espRangeIndex = espRangeIndex % #espRanges + 1
             espRange = espRanges[espRangeIndex]
-            sendNotification("Player ESP", "Enabled (Range: " .. espRange .. ")")
         end
     end
 
